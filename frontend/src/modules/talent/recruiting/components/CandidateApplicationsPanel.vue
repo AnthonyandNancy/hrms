@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ApiError, errorCopy } from '@/api/errors'
 import {
+  candidateStatusLabel,
   createApplication,
   listApplications,
   listRequisitions,
@@ -88,7 +89,7 @@ onMounted(load)
           <td>#{{ application.id }}</td>
           <td>{{ application.requisitionNo ?? application.requisitionId }} · {{ application.requisitionTitle ?? '' }}</td>
           <td>{{ application.stage }}</td>
-          <td>{{ application.status }}</td>
+          <td>{{ candidateStatusLabel(application.status) }}</td>
           <td>{{ application.source ?? '—' }}</td>
         </tr>
       </tbody>

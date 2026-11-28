@@ -22,6 +22,7 @@ final class CaseTemplateCatalog
         'LEAVE_REQUEST' => 'leave.request',
         'ATTENDANCE_CORRECTION' => 'attendance.correction',
         'TRAVEL_REQUEST' => 'travel.request',
+        'OVERTIME_REQUEST' => 'overtime.request',
         'TRANSFER_REQUEST' => 'transfer.request',
         'CONTRACT_RENEWAL' => 'contract.renewal',
         'ONBOARDING_REQUEST' => 'onboarding.request',

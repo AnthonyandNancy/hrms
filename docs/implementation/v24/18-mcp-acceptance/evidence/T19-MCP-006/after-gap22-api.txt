@@ -1,0 +1,4 @@
+/v1/recruitment/requisitions?page=1&page_size=50:200
+/v1/recruitment/candidates?page=1&page_size=50:200
+/v1/org-units/tree:200
+/v1/engagement/notices?filter=unread:403

@@ -12,6 +12,8 @@ import LoadingState from '@/components/LoadingState.vue'
 import PayrollActionBar from '../components/PayrollActionBar.vue'
 import PayslipDrawer from '../components/PayslipDrawer.vue'
 import {
+  assignPayrollRunMember,
+  createPayrollCorrection,
   exportPayrollRun,
   getPayrollEmployees,
   getPayrollInputs,
@@ -28,6 +30,7 @@ import {
   payrollStageTone,
   runPayrollAction,
   savePayrollExport,
+  voidPayrollCorrection,
   type PayrollAction,
   type PayrollEmployee,
   type PayrollEmployeeStatus,
@@ -57,8 +60,91 @@ const inputs = ref<PayrollInputSnapshot[]>([])
 const reconciliation = ref<PayrollReconciliation | null>(null)
 const partialNote = ref('')
 const actionSubmitting = ref<PayrollAction | null>(null)
+const canCorrect = computed(() => session.can('payroll.run.correct'))
+const correctionVoidReason = ref('')
+const correctionVoiding = ref(false)
+const correctionVoidError = ref('')
+const canVoidCorrection = computed(() => detail.value?.runType === 'CORRECTION'
+  && detail.value.correctionStatus !== 'VOID'
+  && ['DRAFT', 'INPUT_LOCKED', 'CALCULATED', 'CALCULATED_WITH_BLOCKERS', 'REVIEWED', 'APPROVED'].includes(detail.value.status)
+  && canCorrect.value)
 const actionError = ref('')
 const actionSuccess = ref('')
+type MoreAction = 'cancel' | 'reopen' | 'correction' | 'assign-member'
+const moreOpen = ref(false)
+const moreAction = ref<MoreAction | null>(null)
+const moreSaving = ref(false)
+const moreError = ref('')
+const moreReason = ref('')
+const morePeriod = ref('')
+const moreApprovers = ref('')
+const moreUserId = ref('')
+const moreRole = ref('REVIEWER')
+const moreTitle = computed(() => ({
+  cancel: '取消工资批次',
+  reopen: '重开工资批次',
+  correction: '创建更正批次',
+  'assign-member': '分配批次成员',
+}[moreAction.value ?? 'cancel']))
+const hasMoreActions = computed(() => detail.value !== null && [
+  'payroll.run.detail.cancel',
+  'payroll.run.detail.reopen',
+  'payroll.run.detail.correct',
+  'payroll.run.detail.assign-member',
+].some((key) => allows(key)))
+function allows(key: string): boolean {
+  return detail.value?.allowedActions?.includes(key) === true
+}
+function openMore(action: MoreAction): void {
+  moreAction.value = action
+  moreError.value = ''
+  moreSaving.value = false
+  moreReason.value = ''
+  morePeriod.value = detail.value?.period ?? ''
+  moreApprovers.value = ''
+  moreUserId.value = ''
+  moreRole.value = 'REVIEWER'
+  moreOpen.value = true
+}
+function closeMore(): void {
+  if (moreSaving.value) return
+  moreOpen.value = false
+  moreAction.value = null
+}
+async function submitMore(): Promise<void> {
+  const current = detail.value
+  const action = moreAction.value
+  if (current === null || action === null) return
+  moreError.value = ''
+  if (moreReason.value.trim().length < 10) {
+    moreError.value = '原因至少 10 个字符。'
+    return
+  }
+  moreSaving.value = true
+  try {
+    if (action === 'cancel') {
+      await runPayrollAction(current.id, 'cancel', { reason: moreReason.value.trim() })
+    } else if (action === 'reopen') {
+      const ids = moreApprovers.value.split(',').map((value) => Number(value.trim())).filter((value) => Number.isSafeInteger(value) && value > 0)
+      if (ids.length < 2) throw new Error('重开至少需要两个审批人编号。')
+      await runPayrollAction(current.id, 'reopen', { reason: moreReason.value.trim(), approver_user_ids: ids })
+    } else if (action === 'correction') {
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(morePeriod.value.trim())) throw new Error('更正期间必须使用 YYYY-MM 格式。')
+      await createPayrollCorrection(current.id, morePeriod.value.trim(), moreReason.value.trim())
+    } else {
+      const userId = Number(moreUserId.value)
+      if (!Number.isSafeInteger(userId) || userId < 1) throw new Error('请输入有效的成员用户编号。')
+      await assignPayrollRunMember(current.id, userId, moreRole.value, moreReason.value.trim())
+    }
+    moreOpen.value = false
+    actionSuccess.value = '其他批次操作已完成。'
+    await load()
+  } catch (reason) {
+    moreError.value = reason instanceof Error ? reason.message : errorCopy(reason)
+  } finally {
+    moreSaving.value = false
+  }
+}
 
 const exportKind = ref<PayrollExportKind | null>(null)
 const exportError = ref('')
@@ -201,6 +287,26 @@ async function load(): Promise<void> {
   }
 }
 
+async function voidCorrection(): Promise<void> {
+  const current = detail.value
+  if (current === null) return
+  correctionVoidError.value = ''
+  if (correctionVoidReason.value.trim().length < 10) {
+    correctionVoidError.value = '作废原因至少 10 个字符。'
+    return
+  }
+  correctionVoiding.value = true
+  try {
+    await voidPayrollCorrection(current.id, correctionVoidReason.value.trim())
+    correctionVoidReason.value = ''
+    await load()
+  } catch (reason) {
+    correctionVoidError.value = errorCopy(reason)
+  } finally {
+    correctionVoiding.value = false
+  }
+}
+
 async function performAction(action: PayrollAction): Promise<void> {
   const current = detail.value
   if (current === null) return
@@ -234,6 +340,7 @@ function payrollActionLabelText(action: PayrollAction): string {
     'mark-paid': '标记发放',
     close: '关闭批次',
     cancel: '取消批次',
+    reopen: '重开批次',
   }[action]
 }
 
@@ -268,6 +375,85 @@ function backToWorkspace(): void {
 watch(routeId, () => {
   void load()
 })
+
+type YtdLedgerRow = {
+  sourceRunId: number
+  sourceType: string
+  netCents: number
+  carryForwardCents: number
+  sourceHash: string
+}
+
+const ytdLedger = computed<YtdLedgerRow[]>(() => {
+  const rawEntries = reconciliation.value?.chain.ytd_ledger
+  if (!Array.isArray(rawEntries)) return []
+
+  return rawEntries.flatMap((raw) => {
+    if (typeof raw !== 'object' || raw === null) return []
+    const entry = raw as Record<string, unknown>
+    const sourceRunId = entry.source_run_id
+    const sourceType = entry.source_type
+    const netCents = entry.net_cents
+    const carryForwardCents = entry.carry_forward_cents
+    const sourceHash = entry.source_hash
+    if (
+      typeof sourceRunId !== 'number'
+      || !Number.isSafeInteger(sourceRunId)
+      || typeof sourceType !== 'string'
+      || typeof netCents !== 'number'
+      || !Number.isSafeInteger(netCents)
+      || typeof carryForwardCents !== 'number'
+      || !Number.isSafeInteger(carryForwardCents)
+      || typeof sourceHash !== 'string'
+    ) {
+      return []
+    }
+
+    return [{ sourceRunId, sourceType, netCents, carryForwardCents, sourceHash }]
+  })
+})
+
+type CompensationSegmentRow = {
+  compensationId: number
+  employmentId: number
+  from: string
+  to: string
+  baseSalaryCents: number
+}
+
+const compensationSegments = computed<CompensationSegmentRow[]>(() =>
+  inputs.value.flatMap((input) => {
+    const rawSegments = input.payload.compensation_segments
+    if (!Array.isArray(rawSegments)) return []
+
+    return rawSegments.flatMap((raw) => {
+      if (typeof raw !== 'object' || raw === null) return []
+      const segment = raw as Record<string, unknown>
+      const compensationId = segment.compensation_id
+      const baseSalaryCents = segment.base_salary_cents
+      const from = segment.segment_from
+      const to = segment.segment_to
+      if (
+        typeof compensationId !== 'number'
+        || !Number.isSafeInteger(compensationId)
+        || typeof baseSalaryCents !== 'number'
+        || !Number.isSafeInteger(baseSalaryCents)
+        || typeof from !== 'string'
+        || typeof to !== 'string'
+      ) {
+        return []
+      }
+
+      return [{
+        compensationId,
+        employmentId: input.employmentId,
+        from,
+        to,
+        baseSalaryCents,
+      }]
+    })
+  }),
+)
 
 const inputColumns: DataTableColumn[] = [
   { key: 'employee', label: '员工关系', minWidth: '130px' },
@@ -405,11 +591,38 @@ onMounted(() => {
       <PayrollActionBar
         :status="detail.status"
         :period="detail.period"
-        :capabilities="session.capabilities"
+        :allowed-actions="detail.allowedActions"
         :submitting="actionSubmitting"
         :read-only="readOnly"
         @action="performAction"
       />
+
+      <section v-if="hasMoreActions" class="panel payroll-detail__more-actions" data-testid="payroll-more-actions">
+        <div class="panel__header"><div><h2 class="panel__title">其他批次操作</h2><p class="panel__subtitle">按钮来自服务端 allowed_actions。</p></div></div>
+        <div class="payroll-detail__more-buttons">
+          <el-button v-if="allows('payroll.run.detail.cancel')" type="danger" plain data-testid="payroll-more-cancel" @click="openMore('cancel')">取消批次</el-button>
+          <el-button v-if="allows('payroll.run.detail.reopen')" type="danger" plain data-testid="payroll-more-reopen" @click="openMore('reopen')">重开批次</el-button>
+          <el-button v-if="allows('payroll.run.detail.correct')" type="danger" plain data-testid="payroll-more-correction" @click="openMore('correction')">创建更正</el-button>
+          <el-button v-if="allows('payroll.run.detail.assign-member')" data-testid="payroll-more-assign-member" @click="openMore('assign-member')">分配成员</el-button>
+        </div>
+      </section>
+
+      <el-dialog v-model="moreOpen" :title="moreTitle" width="520px" :close-on-click-modal="false" data-testid="payroll-more-dialog">
+        <div class="payroll-detail__more-form">
+          <label v-if="moreAction === 'correction'">更正期间<el-input v-model="morePeriod" maxlength="7" placeholder="YYYY-MM" data-testid="payroll-more-period" /></label>
+          <label v-if="moreAction === 'reopen'">审批人用户编号（逗号分隔，至少两人）<el-input v-model="moreApprovers" data-testid="payroll-more-approvers" /></label>
+          <label v-if="moreAction === 'assign-member'">成员用户编号<el-input v-model="moreUserId" inputmode="numeric" data-testid="payroll-more-user" /></label>
+          <label v-if="moreAction === 'assign-member'">成员角色
+            <el-select v-model="moreRole" data-testid="payroll-more-role">
+              <el-option label="复核人" value="REVIEWER" /><el-option label="批准人" value="APPROVER" />
+              <el-option label="发布人" value="PUBLISHER" /><el-option label="发放人" value="DISBURSER" />
+            </el-select>
+          </label>
+          <label>原因<el-input v-model="moreReason" type="textarea" maxlength="1000" data-testid="payroll-more-reason" /></label>
+          <p v-if="moreError" class="payroll-detail__error" role="alert" data-testid="payroll-more-error">{{ moreError }}</p>
+        </div>
+        <template #footer><el-button @click="closeMore">取消</el-button><el-button type="primary" :loading="moreSaving" data-testid="payroll-more-submit" @click="submitMore">确认</el-button></template>
+      </el-dialog>
 
       <p v-if="actionError !== ''" class="payroll-detail__error" role="alert">{{ actionError }}</p>
       <p v-if="actionSuccess !== ''" class="payroll-detail__success" role="status">{{ actionSuccess }}</p>
@@ -550,6 +763,74 @@ onMounted(() => {
       </section>
 
       <section
+        v-if="detail !== null && detail.runType === 'CORRECTION'"
+        class="panel payroll-detail__correction"
+        aria-label="更正链"
+        data-testid="payroll-correction-chain"
+      >
+        <div class="panel__header">
+          <div>
+            <h2 class="panel__title">更正累计基线</h2>
+            <p class="panel__subtitle">
+              目标结果减去原批次和全部已批准更正；本次差额不会重复支付此前更正。
+            </p>
+          </div>
+          <span class="plain-chip" :data-testid="`payroll-correction-status-${detail.correctionStatus ?? 'OPEN'}`">
+            {{ detail.correctionStatus === 'VOID' ? '已作废' : '进行中' }} · 第 {{ detail.correctionSequence ?? 1 }} 次更正
+          </span>
+        </div>
+        <p v-if="detail.correctionStatus === 'VOID'" class="payroll-detail__warning" role="status" data-testid="payroll-correction-void-evidence">
+          作废时间：{{ formatDateTimeInTimezone(detail.correctionVoidedAt) }}；原因：{{ detail.correctionVoidReason ?? '—' }}
+        </p>
+        <dl class="payroll-detail__facts payroll-detail__facts--inline">
+          <div>
+            <dt>原始批次</dt>
+            <dd>#{{ detail.correctionOfRunId ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>基线批次</dt>
+            <dd>#{{ detail.correctionBaselineRunId ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>目标实发</dt>
+            <dd>
+              <MoneyText v-if="detail.correctionTargetNetCents !== undefined && detail.correctionTargetNetCents !== null" :cents="detail.correctionTargetNetCents" size="sm" />
+              <span v-else>待计算</span>
+            </dd>
+          </div>
+          <div>
+            <dt>已批准基线</dt>
+            <dd>
+              <MoneyText v-if="detail.correctionBaselineNetCents !== undefined && detail.correctionBaselineNetCents !== null" :cents="detail.correctionBaselineNetCents" size="sm" />
+              <span v-else>待计算</span>
+            </dd>
+          </div>
+          <div>
+            <dt>本次差额</dt>
+            <dd>
+              <MoneyText v-if="detail.correctionDeltaNetCents !== undefined && detail.correctionDeltaNetCents !== null" :cents="detail.correctionDeltaNetCents" size="sm" tone="strong" />
+              <span v-else>待计算</span>
+            </dd>
+          </div>
+          <div>
+            <dt>累计实发</dt>
+            <dd>
+              <MoneyText v-if="detail.correctionCumulativeNetCents !== undefined && detail.correctionCumulativeNetCents !== null" :cents="detail.correctionCumulativeNetCents" size="sm" tone="strong" />
+              <span v-else>待计算</span>
+            </dd>
+          </div>
+        </dl>
+        <div v-if="canVoidCorrection" class="payroll-detail__void-correction">
+          <p class="payroll-detail__segments-note">
+            作废仅适用于未发布、未支付的更正；保留原记录以审计，同一期间可重新创建更正。
+          </p>
+          <el-input v-model="correctionVoidReason" maxlength="500" data-testid="payroll-correction-void-reason" placeholder="至少 10 个字符的作废原因" />
+          <el-button type="danger" :loading="correctionVoiding" data-testid="payroll-correction-void-submit" @click="voidCorrection">作废未支付更正</el-button>
+          <p v-if="correctionVoidError !== ''" class="payroll-detail__error" role="alert" data-testid="payroll-correction-void-error">{{ correctionVoidError }}</p>
+        </div>
+      </section>
+
+      <section
         v-if="activeDetailTab === 'inputs'"
         class="panel payroll-detail__inputs"
         aria-label="计薪输入证据"
@@ -587,6 +868,32 @@ onMounted(() => {
             </template>
             <template #cell-createdAt="{ row }">{{ formatDateTimeInTimezone(String(row.createdAt)) }}</template>
           </DataTable>
+
+          <section
+            v-if="compensationSegments.length > 0"
+            class="payroll-detail__segments"
+            aria-label="薪酬分段"
+            data-testid="payroll-compensation-segments"
+          >
+            <h3 class="payroll-detail__segments-title">薪酬分段</h3>
+            <p class="payroll-detail__segments-note">
+              按执行薪酬生效边界冻结；基础工资按工作日加权，税费与社保仍按月一次计算。
+            </p>
+            <ul class="payroll-detail__segments-list">
+              <li
+                v-for="segment in compensationSegments"
+                :key="`${segment.employmentId}-${segment.compensationId}`"
+                class="payroll-detail__segment"
+              >
+                <span>
+                  员工 #{{ segment.employmentId }} ·
+                  {{ formatBusinessDate(segment.from) }} 至 {{ formatBusinessDate(segment.to) }} ·
+                  来源 #{{ segment.compensationId }}
+                </span>
+                <MoneyText :cents="segment.baseSalaryCents" size="sm" />
+              </li>
+            </ul>
+          </section>
         </div>
       </section>
 
@@ -658,6 +965,30 @@ onMounted(() => {
             <dd><MoneyText :cents="reconciliation.employerCostCents" size="sm" /></dd>
           </div>
         </dl>
+
+        <section
+          v-if="ytdLedger.length > 0"
+          class="payroll-detail__ytd-ledger"
+          aria-label="YTD 台账"
+          data-testid="payroll-ytd-ledger"
+        >
+          <h3 class="payroll-detail__segments-title">YTD 签字台账</h3>
+          <p class="payroll-detail__segments-note">
+            每条记录来自已发布批次或更正；负净额保留为负数并明确结转，不会截断为零。
+          </p>
+          <ul class="payroll-detail__segments-list">
+            <li v-for="entry in ytdLedger" :key="entry.sourceRunId" class="payroll-detail__segment">
+              <span>
+                批次 #{{ entry.sourceRunId }} · {{ entry.sourceType === 'CORRECTION' ? '更正' : '工资' }} ·
+                摘要 {{ entry.sourceHash.slice(0, 12) }}
+              </span>
+              <MoneyText :cents="entry.netCents" size="sm" :tone="entry.netCents < 0 ? 'negative' : 'default'" />
+              <span v-if="entry.carryForwardCents < 0" class="payroll-detail__carry">
+                结转 <MoneyText :cents="entry.carryForwardCents" size="sm" tone="negative" />
+              </span>
+            </li>
+          </ul>
+        </section>
 
         <ul v-if="reconciliation.differences.length > 0" class="payroll-detail__differences" role="alert">
           <li v-for="(difference, index) in reconciliation.differences" :key="index">
@@ -1009,6 +1340,47 @@ onMounted(() => {
 .payroll-detail__state p {
   margin: 0;
   color: #475569;
+  font-size: 12px;
+}
+.payroll-detail__segments {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border-subtle, #e5e7eb);
+}
+
+.payroll-detail__segments-title {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.payroll-detail__segments-note {
+  margin: 0 0 8px;
+  color: var(--color-text-secondary, #6b7280);
+  font-size: 12px;
+}
+
+.payroll-detail__segments-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.payroll-detail__segment {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+.payroll-detail__ytd-ledger {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border-subtle, #e5e7eb);
+}
+
+.payroll-detail__carry {
+  color: var(--color-danger, #b91c1c);
   font-size: 12px;
 }
 </style>

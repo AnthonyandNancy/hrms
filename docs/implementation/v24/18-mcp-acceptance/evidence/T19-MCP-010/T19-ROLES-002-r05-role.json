@@ -1,0 +1,1 @@
+{"code":"CREATED","message":"Created","data":{"user_id":11,"role_code":"PAYROLL_APPROVER","warnings":[{"pair":["payroll.run.approve","payroll.run.review"],"kind":"OBJECT_LEVEL"}]},"request_id":"01M8H2EY895B3VVWS2V1BTNJWA"}

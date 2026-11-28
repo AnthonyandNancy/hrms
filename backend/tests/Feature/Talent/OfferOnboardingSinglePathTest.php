@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Talent;
 
 use App\Modules\Lifecycle\Models\LifecycleIntent;
+use App\Modules\Payroll\Models\EmployeeCompensation;
 use App\Modules\People\Models\Employment;
 use App\Modules\People\Models\Person;
 use App\Modules\Talent\Models\Candidate;
@@ -97,6 +98,34 @@ final class OfferOnboardingSinglePathTest extends TalentTestCase
         $this->assertSame(1, CandidateConversion::query()->count());
         $this->assertSame(1, Employment::query()->count());
         $this->assertSame(1, Person::query()->count());
+    }
+
+    public function test_offer_salary_and_scheme_create_one_payroll_compensation_draft(): void
+    {
+        [$candidate, $offer] = $this->offerScenario('OFFER-COMP-DRAFT');
+        $offer->forceFill(['salary_scheme_code' => 'SCHEME-A'])->save();
+        $org = $this->peopleScenario->orgUnit('OFFER-COMP-DRAFT-DEST');
+        $payload = [
+            'org_unit_id' => (int) $org->id,
+            'employee_no' => 'SYN-OFFER-COMP-1',
+            'hire_date' => '2026-12-01',
+        ];
+
+        $this->postJson("/v1/recruitment/offers/{$offer->id}/accept", $payload, ['Idempotency-Key' => 'offer-comp-accept'])
+            ->assertCreated();
+        $intent = LifecycleIntent::query()->where('offer_id', (int) $offer->id)->firstOrFail();
+        $this->postJson("/v1/cases/{$intent->case_id}/submit", [], ['Idempotency-Key' => 'offer-comp-submit'])->assertOk();
+        $this->approveCase((int) $intent->case_id, 'offer-comp-approve')->assertOk();
+
+        $employment = Employment::query()->where('employee_no', 'SYN-OFFER-COMP-1')->firstOrFail();
+        $compensation = EmployeeCompensation::query()->where('employment_id', $employment->id)->firstOrFail();
+        $this->assertSame(2_000_000, (int) $compensation->base_salary_cents);
+        $this->assertSame('CNY', (string) $compensation->currency);
+        $this->assertSame('SCHEME-A', (string) $compensation->salary_scheme_code);
+        $this->assertSame('DRAFT', (string) $compensation->status);
+        $this->assertSame('ONBOARDING', (string) $compensation->source_type);
+        $this->assertSame((int) $intent->case_id, (int) $compensation->approved_case_id);
+        $this->assertSame(1, EmployeeCompensation::query()->where('employment_id', $employment->id)->count());
     }
 
     public function test_closed_requisition_rejects_offer_creation_and_acceptance_with_conflict(): void

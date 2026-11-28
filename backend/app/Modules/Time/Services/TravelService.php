@@ -7,7 +7,10 @@ namespace App\Modules\Time\Services;
 use App\Modules\Time\Contracts\EmploymentDirectory;
 use App\Modules\Time\Contracts\WorkflowCasePort;
 use App\Modules\Time\Contracts\WorkflowCaseSnapshot;
+use App\Modules\Time\Models\AttendanceDay;
 use App\Modules\Time\Models\BusinessTripRecord;
+use App\Modules\Time\Models\LeaveRequestProjection;
+use App\Modules\Time\Models\OvertimeRequest;
 use App\Modules\Time\Models\TravelAttendanceLink;
 use App\Modules\Time\Models\TravelExpense;
 use App\Modules\Time\Models\TravelPolicy;
@@ -39,6 +42,7 @@ final class TravelService
         private readonly EmploymentDirectory $employments,
         private readonly AuditRecorder $audit,
         private readonly SensitiveAccessAuditor $sensitiveAuditor,
+        private readonly PayrollFreezeGuard $freezeGuard,
     ) {}
 
     /**
@@ -154,6 +158,10 @@ final class TravelService
         $toDate = (string) $input['to_date'];
 
         return DB::transaction(function () use ($employmentId, $fromDate, $toDate, $input, $actorUserId): array {
+            foreach (PayrollFreezeGuard::periodsForRange($fromDate, $toDate) as $period) {
+                $this->freezeGuard->lockAndAssertOpen($period);
+            }
+
             $overlap = BusinessTripRecord::query()
                 ->where('employment_id', $employmentId)
                 ->whereIn('status', ['PENDING_APPROVAL', 'APPROVED'])
@@ -164,6 +172,38 @@ final class TravelService
 
             if ($overlap) {
                 throw new ConflictException('An active travel request overlaps this period.', ['reason' => 'TRAVEL_OVERLAP']);
+            }
+
+            if (LeaveRequestProjection::query()
+                ->where('employment_id', $employmentId)
+                ->whereIn('state', ['SUBMITTED', 'APPROVED', 'CONSUMED'])
+                ->where('from_date', '<=', $toDate)
+                ->where('to_date', '>=', $fromDate)
+                ->exists()) {
+                throw new ConflictException('Travel overlaps a leave request; resolve the conflict before applying.', [
+                    'reason' => 'TRAVEL_TIME_CONFLICT',
+                    'conflict_type' => 'LEAVE',
+                ]);
+            }
+            if (OvertimeRequest::query()
+                ->where('employment_id', $employmentId)
+                ->whereIn('status', [OvertimeRequest::STATUS_APPROVED, OvertimeRequest::STATUS_CONFIRMED])
+                ->whereBetween('business_date', [$fromDate, $toDate])
+                ->exists()) {
+                throw new ConflictException('Travel overlaps approved overtime; resolve the conflict before applying.', [
+                    'reason' => 'TRAVEL_TIME_CONFLICT',
+                    'conflict_type' => 'OVERTIME',
+                ]);
+            }
+            if (AttendanceDay::query()
+                ->where('employment_id', $employmentId)
+                ->whereBetween('business_date', [$fromDate, $toDate])
+                ->where('worked_minutes', '>', 0)
+                ->exists()) {
+                throw new ConflictException('Travel overlaps recorded attendance; travel credit cannot double-count work.', [
+                    'reason' => 'TRAVEL_TIME_CONFLICT',
+                    'conflict_type' => 'ATTENDANCE',
+                ]);
             }
 
             $caseId = $this->workflow->createCase(
@@ -232,6 +272,15 @@ final class TravelService
                 throw new NotFoundOrForbiddenException;
             }
 
+            $periods = PayrollFreezeGuard::periodsForRange(
+                $trip->from_date->format('Y-m-d'),
+                $trip->to_date->format('Y-m-d'),
+            );
+
+            foreach ($periods as $period) {
+                $this->freezeGuard->lockAndAssertOpen($period);
+            }
+
             $employment = $this->employments->snapshot(
                 (int) $trip->employment_id,
                 $trip->from_date->format('Y-m-d'),
@@ -264,6 +313,17 @@ final class TravelService
                 ->where('status', TravelRequestChange::STATUS_PENDING)
                 ->lockForUpdate()
                 ->first();
+
+            if ($pendingChange !== null && $action === 'APPROVE') {
+                $proposed = (array) $pendingChange->proposed_json;
+
+                foreach (PayrollFreezeGuard::periodsForRange(
+                    (string) ($proposed['from_date'] ?? $trip->from_date->format('Y-m-d')),
+                    (string) ($proposed['to_date'] ?? $trip->to_date->format('Y-m-d')),
+                ) as $period) {
+                    $this->freezeGuard->lockAndAssertOpen($period);
+                }
+            }
 
             $applicationCaseId = (int) $trip->case_id;
             $changeCaseId = $pendingChange?->case_id !== null ? (int) $pendingChange->case_id : null;
@@ -729,6 +789,13 @@ final class TravelService
                 ]);
             }
 
+            foreach (PayrollFreezeGuard::periodsForRange(
+                $record->from_date->format('Y-m-d'),
+                $record->to_date->format('Y-m-d'),
+            ) as $period) {
+                $this->freezeGuard->lockAndAssertOpen($period);
+            }
+
             $this->assertExpensesCancellable((int) $record->id);
 
             $record->forceFill([
@@ -778,6 +845,10 @@ final class TravelService
         }
 
         return DB::transaction(function () use ($employmentId, $travelId, $input, $actorUserId, $fromDate, $toDate, $reason): array {
+            foreach (PayrollFreezeGuard::periodsForRange($fromDate, $toDate) as $period) {
+                $this->freezeGuard->lockAndAssertOpen($period);
+            }
+
             $trip = BusinessTripRecord::query()
                 ->where('employment_id', $employmentId)
                 ->whereKey($travelId)
@@ -903,7 +974,23 @@ final class TravelService
             return null;
         }
 
-        return DB::transaction(function () use ($trip, $change): TravelRequestChange {
+        $proposed = (array) $change->proposed_json;
+        $periods = [
+            ...PayrollFreezeGuard::periodsForRange(
+                $trip->from_date->format('Y-m-d'),
+                $trip->to_date->format('Y-m-d'),
+            ),
+            ...PayrollFreezeGuard::periodsForRange(
+                (string) ($proposed['from_date'] ?? $trip->from_date->format('Y-m-d')),
+                (string) ($proposed['to_date'] ?? $trip->to_date->format('Y-m-d')),
+            ),
+        ];
+
+        return DB::transaction(function () use ($trip, $change, $periods): TravelRequestChange {
+            foreach (array_values(array_unique($periods)) as $period) {
+                $this->freezeGuard->lockAndAssertOpen($period);
+            }
+
             $this->applyChangeToTrip($trip, $change);
             $change->forceFill([
                 'status' => TravelRequestChange::STATUS_APPLIED,

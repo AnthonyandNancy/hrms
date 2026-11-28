@@ -7,6 +7,7 @@ namespace Tests\Feature\Platform;
 use App\Modules\Payroll\Models\BenefitEnrollment;
 use App\Modules\Payroll\Models\BenefitPlan;
 use App\Shared\Architecture\ModuleBoundaryScanner;
+use App\Shared\Authorization\FieldProfile;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\PeopleTestCase;
 
@@ -111,7 +112,7 @@ final class BenefitTest extends PeopleTestCase
             ->assertStatus(422);
     }
 
-    public function test_monthly_transaction_cannot_be_paid_twice_through_the_same_payroll_run(): void
+    public function test_multiple_plans_and_periods_can_share_a_payroll_run_but_duplicate_record_is_rejected(): void
     {
         $this->benefitEmployment();
 
@@ -140,20 +141,52 @@ final class BenefitTest extends PeopleTestCase
             ->assertJsonPath('data.employee_amount_cents', 80_000)
             ->assertJsonPath('data.employer_amount_cents', 160_000)
             ->assertJsonPath('data.total_amount_cents', 240_000)
-            ->assertJsonPath('data.payroll_run_id', 77);
+            ->assertJsonPath('data.payroll_run_id', 77)
+            ->assertJsonPath('data.entry_type', 'RECORD');
+
+        $this->postJson('/v1/benefits/transactions', [
+            'enrollment_id' => $enrollmentId,
+            'period' => '2026-01',
+            'payroll_run_id' => 77,
+        ], ['Idempotency-Key' => 'benefit-transaction-duplicate'])
+            ->assertStatus(409)
+            ->assertJsonPath('data.reason', 'BENEFIT_PERIOD_DUPLICATE');
+
+        $secondPlanId = (int) $this->postJson('/v1/benefits/plans', [
+            'code' => 'SUPPLEMENTARY_MEDICAL',
+            'name' => 'Supplementary medical',
+            'employer_rate' => '0.030000',
+            'employee_rate' => '0.020000',
+            'effective_from' => '2026-01-01',
+        ], ['Idempotency-Key' => 'benefit-plan-tx-2'])->json('data.id');
+        $secondEnrollmentId = (int) $this->postJson('/v1/benefits/enrollments', [
+            'plan_id' => $secondPlanId,
+            'employment_id' => $this->benefitEmploymentId,
+            'base_amount_cents' => 1_000_000,
+            'effective_from' => '2026-01-01',
+        ], ['Idempotency-Key' => 'benefit-enrollment-tx-2'])->json('data.id');
+
+        $this->postJson('/v1/benefits/transactions', [
+            'enrollment_id' => $secondEnrollmentId,
+            'period' => '2026-01',
+            'payroll_run_id' => 77,
+        ], ['Idempotency-Key' => 'benefit-transaction-2-plan'])
+            ->assertCreated()
+            ->assertJsonPath('data.employee_amount_cents', 20_000)
+            ->assertJsonPath('data.employer_amount_cents', 30_000);
 
         $this->postJson('/v1/benefits/transactions', [
             'enrollment_id' => $enrollmentId,
             'period' => '2026-02',
             'payroll_run_id' => 77,
         ], ['Idempotency-Key' => 'benefit-transaction-2'])
-            ->assertStatus(409)
-            ->assertJsonPath('data.reason', 'BENEFIT_PAYROLL_LINK_DUPLICATE');
+            ->assertCreated()
+            ->assertJsonPath('data.period', '2026-02');
 
         $this->getJson('/v1/benefits/transactions?employment_id='.$this->benefitEmploymentId)
             ->assertOk()
             ->assertJsonStructure(['data' => ['items', 'page', 'page_size', 'total', 'as_of', 'freshness', 'source_hash', 'partial', 'partial_reason', 'drilldown']])
-            ->assertJsonPath('data.total', 1);
+            ->assertJsonPath('data.total', 3);
     }
 
     public function test_write_requires_idempotency_and_plan_catalogue_is_instance_wide(): void
@@ -184,6 +217,40 @@ final class BenefitTest extends PeopleTestCase
             ->assertOk()
             ->assertJsonPath('data.total', 1)
             ->assertJsonFragment(['code' => 'MANUAL_PLAN']);
+    }
+
+    public function test_benefit_amounts_are_masked_when_the_caller_lacks_p3(): void
+    {
+        $this->benefitEmployment();
+        $planId = (int) $this->postJson('/v1/benefits/plans', [
+            'code' => 'MEDICAL_P3',
+            'name' => 'Medical P3',
+            'employer_rate' => '0.100000',
+            'employee_rate' => '0.050000',
+            'effective_from' => '2026-01-01',
+        ], ['Idempotency-Key' => 'benefit-p3-plan'])->json('data.id');
+        $enrollmentId = (int) $this->postJson('/v1/benefits/enrollments', [
+            'plan_id' => $planId,
+            'employment_id' => $this->benefitEmploymentId,
+            'base_amount_cents' => 1_000_000,
+            'effective_from' => '2026-01-01',
+        ], ['Idempotency-Key' => 'benefit-p3-enrollment'])->json('data.id');
+        $this->postJson('/v1/benefits/transactions', [
+            'enrollment_id' => $enrollmentId,
+            'period' => '2026-01',
+        ], ['Idempotency-Key' => 'benefit-p3-transaction'])->assertCreated();
+
+        $this->authorizer->fieldProfiles['benefit.read'] = FieldProfile::P2_SENSITIVE;
+
+        $enrollments = $this->getJson('/v1/benefits/enrollments')->assertOk();
+        $this->assertArrayNotHasKey('base_amount_cents', $enrollments->json('data.items.0'));
+        $this->assertArrayNotHasKey('employee_contribution_cents', $enrollments->json('data.items.0'));
+
+        $transactions = $this->getJson('/v1/benefits/transactions')->assertOk();
+        $this->assertArrayNotHasKey('base_amount_cents', $transactions->json('data.items.0'));
+        $this->assertArrayNotHasKey('employee_amount_cents', $transactions->json('data.items.0'));
+        $this->assertArrayNotHasKey('employer_amount_cents', $transactions->json('data.items.0'));
+        $this->assertArrayNotHasKey('total_amount_cents', $transactions->json('data.items.0'));
     }
 
     public function test_benefit_tables_have_one_declared_owner(): void
@@ -219,6 +286,7 @@ final class BenefitTest extends PeopleTestCase
             'source_type' => 'TEST',
         ]);
 
+        $this->authorizer->fieldProfiles['benefit.read'] = FieldProfile::P3_RESTRICTED;
         $this->actAs(userId: 1001, employmentId: $this->benefitEmploymentId);
     }
 }

@@ -1,0 +1,4 @@
+mysql: [Warning] Using a password on the command line interface can be insecure.
+principal_id	capability_code	anchor_type	anchor_id	anchor_key	field_profile	valid_from	valid_to
+2	payroll.run.read	PAYROLL_RUN	1	1	P2_SENSITIVE	2026-11-28 00:00:00	2027-11-28 00:00:00
+2	payroll.run.read	PAYROLL_RUN	1	1	P2_SENSITIVE	2026-11-28 00:00:00	2027-11-28 00:00:00

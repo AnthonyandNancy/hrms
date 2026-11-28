@@ -74,6 +74,7 @@ function overtimeRequestRaw(overrides: Record<string, unknown> = {}): Record<str
     case_id: 31,
     overtime_record_id: null,
     recorded_at: '2026-11-20T10:00:00Z',
+    allowed_actions: ['overtime.request.confirm'],
     ...overrides,
   }
 }
@@ -162,6 +163,7 @@ const ALL_CAPABILITIES = [
   'time.overtime.read',
   'time.overtime.request',
   'time.overtime.confirm',
+  'time.overtime.manage',
   'time.overtime.settle',
   'time.timeoff.read',
   'time.travel.read',
@@ -255,7 +257,11 @@ async function mountPage(
 ): Promise<{ wrapper: ReturnType<typeof mount>; router: Router }> {
   const pinia = createPinia()
   setActivePinia(pinia)
-  useSessionStore().$patch({ status: 'authenticated', capabilities })
+  useSessionStore().$patch({
+    status: 'authenticated',
+    capabilities,
+    principal: { employmentId: 1 } as never,
+  })
 
   const router = createRouter({
     history: createMemoryHistory(),
@@ -382,6 +388,33 @@ describe('Overtime request drawer', () => {
 })
 
 describe('Overtime confirmation and settlement', () => {
+  it('approves a submitted overtime request through the server action and stable key', async () => {
+    installSuccessfulReads({
+      '/v1/time/overtime/requests': overtimeProjection([overtimeRequestRaw({
+        status: 'SUBMITTED',
+        allowed_actions: ['overtime.request.approve'],
+      })]),
+    })
+    resource.post.mockResolvedValue(overtimeRequestRaw({
+      status: 'APPROVED',
+      allowed_actions: ['overtime.request.confirm'],
+    }))
+    const { wrapper } = await mountPage()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="overtime-approve-5"]').trigger('click')
+    await wrapper.get('[data-testid="overtime-approve-comment-5"]').setValue('Synthetic manager approval.')
+    await wrapper.get('[data-testid="overtime-approve-submit-5"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/time/overtime/requests/5/approve',
+      { decision: 'APPROVE', comment: 'Synthetic manager approval.' },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('已批准')
+  })
+
   it('confirms an approved request with explicit minutes and reuses the same key after a 422 retry', async () => {
     installSuccessfulReads()
     resource.post
@@ -608,7 +641,9 @@ describe('OvertimeTravelWorkspace capability guards and five states', () => {
   })
 
   it('hides every write control when only read capabilities are present', async () => {
-    installSuccessfulReads()
+    installSuccessfulReads({
+      '/v1/time/overtime/requests': overtimeProjection([overtimeRequestRaw({ allowed_actions: [] })]),
+    })
     const { wrapper } = await mountPage([
       'time.overtime.read',
       'time.travel.read',

@@ -70,6 +70,15 @@ function detailRaw(overrides: Record<string, unknown> = {}): Record<string, unkn
     input_hash: 'abc',
     snapshot_version: 2,
     reopen_count: 0,
+    allowed_actions: [
+      'payroll.run.detail.lock-inputs',
+      'payroll.run.detail.calculate',
+      'payroll.run.detail.review',
+      'payroll.run.detail.approve',
+      'payroll.run.detail.publish',
+      'payroll.run.detail.mark-paid',
+      'payroll.run.detail.close',
+    ],
     employees: [
       {
         employment_id: 21,
@@ -261,17 +270,27 @@ describe('payroll run detail and action bar', () => {
       }
       if (path === '/v1/payroll/runs/7/inputs') {
         return Promise.resolve(page([
-          { id: 1, employment_id: 21, snapshot_type: 'INPUT', snapshot_version: 2, source_hash: 'b'.repeat(64), payload: {}, created_at: '2026-11-25T16:00:00Z' },
+          { id: 1, employment_id: 21, snapshot_type: 'INPUT', snapshot_version: 2, source_hash: 'b'.repeat(64), payload: { compensation_segments: [{ compensation_id: 41, segment_from: '2026-11-01', segment_to: '2026-11-15', base_salary_cents: 800000 }, { compensation_id: 42, segment_from: '2026-11-16', segment_to: '2026-11-30', base_salary_cents: 900000 }] }, created_at: '2026-11-25T16:00:00Z' },
         ]))
       }
       if (path === '/v1/payroll/runs/7/reconciliation') {
         return Promise.resolve({
           run_id: 7, period: '2026-11', status: 'DRAFT', employee_count: 2, payslip_count: 1,
           gross_cents: 800000, deductions_cents: 200000, net_cents: 600000, employer_cost_cents: 1000000,
-          differences: [], passed: true,
+          differences: [], chain: { ytd_ledger: [{ source_run_id: 7, source_type: 'PAYROLL', gross_cents: 800000, net_cents: -120000, carry_forward_cents: -120000, source_hash: 'c'.repeat(64) }] }, passed: true,
         })
       }
-      return Promise.resolve(detailRaw())
+      return Promise.resolve(detailRaw({
+        run_type: 'CORRECTION',
+        correction_of_run_id: 3,
+        correction_sequence: 2,
+        correction_baseline_run_id: 4,
+        prior_correction_ids: [4],
+        correction_target_net_cents: 835000,
+        correction_baseline_net_cents: 830000,
+        correction_delta_net_cents: 5000,
+        correction_cumulative_net_cents: 835000,
+      }))
     })
 
     const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7?tab=inputs')
@@ -281,21 +300,26 @@ describe('payroll run detail and action bar', () => {
     expect(resource.get).toHaveBeenCalledWith('/v1/payroll/runs/7/inputs')
     expect(resource.get).toHaveBeenCalledWith('/v1/payroll/runs/7/reconciliation')
     expect(wrapper.get('[data-testid="payroll-input-table"]').text()).toContain('员工 #21')
+    expect(wrapper.get('[data-testid="payroll-compensation-segments"]').text()).toContain('2026年11月1日')
+    expect(wrapper.get('[data-testid="payroll-compensation-segments"]').text()).toContain('8,000.00')
+    expect(wrapper.get('[data-testid="payroll-ytd-ledger"]').text()).toContain('结转')
+    const correction = wrapper.get('[data-testid="payroll-correction-chain"]').text()
+    expect(correction).toContain('第 2 次更正')
+    expect(correction).toContain('8,350.00')
+    expect(correction).toContain('50.00')
     expect(wrapper.get('[data-testid="payroll-reconciliation-status"]').text()).toContain('对账通过')
     expect(wrapper.text()).toContain('2026 年 11 月')
   })
 
   it('disables actions with Chinese reasons when the transition or capability is missing', async () => {
-    resource.get.mockResolvedValue(detailRaw())
+    resource.get.mockResolvedValue(detailRaw({ allowed_actions: [] }))
 
     const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7?tab=export', ['payroll.run.read'])
 
     const lock = wrapper.get('[data-testid="payroll-action-lock-inputs"]')
     expect(lock.attributes('disabled')).toBeDefined()
-    expect(wrapper.get('[data-testid="payroll-action-reason-lock-inputs"]').text()).toContain(
-      'payroll.run.prepare',
-    )
-    expect(wrapper.get('[data-testid="payroll-action-reason-approve"]').text()).toContain('缺少能力')
+    expect(wrapper.get('[data-testid="payroll-action-reason-lock-inputs"]').text()).toContain('当前状态或授权不允许')
+    expect(wrapper.get('[data-testid="payroll-action-reason-approve"]').text()).toContain('当前状态或授权不允许')
   })
 
   it('explains illegal transitions for an allowed capability without issuing a request', async () => {
@@ -347,6 +371,48 @@ describe('payroll run detail and action bar', () => {
 
     expect(wrapper.text()).toContain('仅草稿批次可以锁定输入。')
     expect(wrapper.text()).not.toContain('Invalid transition.')
+  })
+
+  it('posts cancellation and correction only when the server action is present', async () => {
+    resource.get.mockResolvedValue(detailRaw({ allowed_actions: ['payroll.run.detail.cancel'] }))
+    const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7?tab=export')
+    expect(wrapper.find('[data-testid="payroll-more-cancel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="payroll-more-correction"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="payroll-more-cancel"]').trigger('click')
+    await wrapper.get('[data-testid="payroll-more-reason"]').setValue('Synthetic cancellation reason.')
+    await wrapper.get('[data-testid="payroll-more-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/payroll/runs/7/cancel',
+      { reason: 'Synthetic cancellation reason.' },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+  })
+
+  it('creates a correction with the server action and exact period/reason', async () => {
+    resource.get.mockResolvedValue(detailRaw({
+      status: 'PUBLISHED',
+      allowed_actions: ['payroll.run.detail.correct'],
+    }))
+    resource.post.mockResolvedValue(detailRaw({
+      status: 'PUBLISHED',
+      allowed_actions: ['payroll.run.detail.correct'],
+    }))
+
+    const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7?tab=export')
+    await wrapper.get('[data-testid="payroll-more-correction"]').trigger('click')
+    await wrapper.get('[data-testid="payroll-more-period"]').setValue('2026-12')
+    await wrapper.get('[data-testid="payroll-more-reason"]').setValue('Synthetic correction reason.')
+    await wrapper.get('[data-testid="payroll-more-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/payroll/runs/7/corrections',
+      { period: '2026-12', reason: 'Synthetic correction reason.' },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
   })
 
   it('keeps exports available on a published run and downloads the real API response', async () => {
@@ -401,7 +467,11 @@ describe('payroll action bar and payslip drawer', () => {
       props: {
         status: 'REVIEWED',
         period: '2026-11',
-        capabilities: CAPABILITIES,
+        allowedActions: [
+          'payroll.run.detail.lock-inputs',
+          'payroll.run.detail.approve',
+          'payroll.run.detail.publish',
+        ],
       },
       global: { plugins: [ElementPlus], stubs: { ElDialog: OverlayStub, teleport: true } },
     })

@@ -1,0 +1,365 @@
+- generic [ref=f3e3]:
+  - link "跳到主要内容" [ref=f3e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - complementary "主导航" [ref=f3e5]:
+    - generic [ref=f3e6]:
+      - generic [aria-hidden] [ref=f3e7]: 澄
+      - generic [ref=f3e8]:
+        - generic [ref=f3e9]: 澄明 HR
+        - generic [ref=f3e10]: Acme China Synthetic
+      - button "收起侧边栏" [expanded] [ref=f3e11] [cursor=pointer]
+    - navigation "V1.1 功能菜单" [ref=f3e15]:
+      - link "我的工作台" [ref=f3e17] [cursor=pointer]:
+        - /url: /workspace
+      - button "仪表盘" [ref=f3e23] [cursor=pointer]
+      - button "报表中心" [ref=f3e32] [cursor=pointer]
+      - button "员工档案" [ref=f3e41] [cursor=pointer]
+      - button "组织与岗位" [ref=f3e50] [cursor=pointer]
+      - button "员工异动" [ref=f3e59] [cursor=pointer]
+      - button "劳动合同" [ref=f3e68] [cursor=pointer]
+      - button "考勤打卡" [ref=f3e77] [cursor=pointer]
+      - button "请假管理" [ref=f3e88] [cursor=pointer]
+      - button "加班管理" [ref=f3e97] [cursor=pointer]
+      - button "出差管理" [ref=f3e108] [cursor=pointer]
+      - button "薪资管理" [ref=f3e117] [cursor=pointer]
+      - button "绩效考核" [ref=f3e128] [cursor=pointer]
+      - generic [ref=f3e136]:
+        - button "系统管理" [expanded] [ref=f3e137] [cursor=pointer]
+        - generic [ref=f3e146]:
+          - link "登录与账号安全" [ref=f3e147] [cursor=pointer]:
+            - /url: /account
+          - link "用户管理" [ref=f3e153] [cursor=pointer]:
+            - /url: /system/users
+          - link "角色管理" [ref=f3e159] [cursor=pointer]:
+            - /url: /system/roles
+          - link "页面目录" [ref=f3e165] [cursor=pointer]:
+            - /url: /system/pages
+          - link "审批流程中心" [ref=f3e171] [cursor=pointer]:
+            - /url: /workflow
+          - link "社保公积金与福利" [ref=f3e177] [cursor=pointer]:
+            - /url: /benefits
+          - link "公司设置" [ref=f3e183] [cursor=pointer]:
+            - /url: /system/settings
+          - link "消息与通知中心" [ref=f3e189] [cursor=pointer]:
+            - /url: /notifications
+          - link "日志审计与运维" [ref=f3e195] [cursor=pointer]:
+            - /url: /system/audit
+      - button "招聘需求" [ref=f3e202] [cursor=pointer]
+      - button "候选人" [ref=f3e211] [cursor=pointer]
+      - button "培训管理" [ref=f3e220] [cursor=pointer]
+      - button "公告通知" [ref=f3e230] [cursor=pointer]
+  - generic [ref=f3e240]:
+    - banner [ref=f3e241]:
+      - generic [ref=f3e242]:
+        - paragraph [ref=f3e243]: 澄明科技 · 人力资源
+        - generic [ref=f3e244]: 角色管理
+      - link "查看未读公告" [ref=f3e245] [cursor=pointer]:
+        - /url: /notices
+      - button "打开账户菜单" [ref=f3e253] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f3e254]: IN
+        - generic [ref=f3e255]: installer
+    - main [ref=f3e260]:
+      - generic [ref=f3e261]:
+        - generic [ref=f3e262]:
+          - generic [ref=f3e263]:
+            - heading "角色与授权工作台" [level=1] [ref=f3e264]
+            - paragraph [ref=f3e265]: 页面授权决定能否进入和查看；按钮动作必须单独授权，隐藏按钮不代替服务端校验。保存时一次性提交四类授权。
+          - generic [ref=f3e266]:
+            - text: 15 个角色
+            - button "刷新" [ref=f3e267]
+            - button "新增角色" [ref=f3e268]
+        - generic [ref=f3e269]:
+          - complementary [ref=f3e270]:
+            - heading "角色列表" [level=2] [ref=f3e272]
+            - list [ref=f3e273]:
+              - listitem [ref=f3e274]:
+                - button "Attendance specialist ATTENDANCE_SPECIALIST" [ref=f3e275]:
+                  - generic [ref=f3e276]: Attendance specialist
+                  - generic [ref=f3e277]: ATTENDANCE_SPECIALIST
+                - generic [ref=f3e278]: 内置
+                - button "复制" [ref=f3e280]
+                - paragraph [ref=f3e281]: 内置角色由代码维护，不能重命名或删除；需要调整时请复制后修改。
+              - listitem [ref=f3e282]:
+                - button "Auditor AUDITOR" [ref=f3e283]:
+                  - generic [ref=f3e284]: Auditor
+                  - generic [ref=f3e285]: AUDITOR
+                - generic [ref=f3e286]: 内置
+                - button "复制" [ref=f3e288]
+                - paragraph [ref=f3e289]: 内置角色由代码维护，不能重命名或删除；需要调整时请复制后修改。
+              - listitem [ref=f3e290]:
+                - button "Benefits administrator BENEFITS_ADMIN" [ref=f3e291]:
+                  - generic [ref=f3e292]: Benefits administrator
+                  - generic [ref=f3e293]: BENEFITS_ADMIN
+                - generic [ref=f3e294]: 内置
+                - button "复制" [ref=f3e296]
+                - paragraph [ref=f3e297]: 内置角色由代码维护，不能重命名或删除；需要调整时请复制后修改。
+              - listitem [ref=f3e298]:
+                - button "Employee self-service EMPLOYEE" [ref=f3e299]:
+                  - generic [ref=f3e300]: Employee self-service
+                  - generic [ref=f3e301]: EMPLOYEE
+                - generic [ref=f3e302]: 内置
+                - button "复制" [ref=f3e304]
+                - paragraph [ref=f3e305]: 内置角色由代码维护，不能重命名或删除；需要调整时请复制后修改。
+              - listitem [ref=f3e306]:
+                - button "HR administrator HR_ADMIN" [ref=f3e307]:
+                  - generic [ref=f3e308]: HR administrator
+                  - generic [ref=f3e309]: HR_ADMIN
+                - generic [ref=f3e310]: 内置
+                - button "复制" [ref=f3e312]
+                - paragraph [ref=f3e313]: 内置角色由代码维护，不能重命名或删除；需要调整时请复制后修改。
+              - listitem [ref=f3e314]:
+                - button "HR specialist HR_SPECIALIST" [ref=f3e315]:
+                  - generic [ref=f3e316]: HR specialist
+                  - generic [ref=f3e317]: HR_SPECIALIST
+                - generic [ref=f3e318]: 内置
+                - button "复制" [ref=f3e320]
+                - paragraph [ref=f3e321]: 内置角色由代码维护，不能重命名或删除；需要调整时请复制后修改。
+              - listitem [ref=f3e322]:
+                - button "Line manager LINE_MANAGER" [ref=f3e323]:
+                  - generic [ref=f3e324]: Line manager
+                  - generic [ref=f3e325]: LINE_MANAGER
+                - generic [ref=f3e326]: 内置
+                - button "复制" [ref=f3e328]
+                - paragraph [ref=f3e329]: 内置角色由代码维护，不能重命名或删除；需要调整时请复制后修改。
+              - listitem [ref=f3e330]:
+                - button "Payroll approver PAYROLL_APPROVER" [ref=f3e331]:
+                  - generic [ref=f3e332]: Payroll approver
+                  - generic [ref=f3e333]: PAYROLL_APPROVER
+                - generic [ref=f3e334]: 内置
+                - button "复制" [ref=f3e336]
+                - paragraph [ref=f3e337]: 内置角色由代码维护，不能重命名或删除；需要调整时请复制后修改。
+              - listitem [ref=f3e338]:
+                - button "Payroll specialist PAYROLL_SPECIALIST" [ref=f3e339]:
+                  - generic [ref=f3e340]: Payroll specialist
+                  - generic [ref=f3e341]: PAYROLL_SPECIALIST
+                - generic [ref=f3e342]: 内置
+                - button "复制" [ref=f3e344]
+                - paragraph [ref=f3e345]: 内置角色由代码维护，不能重命名或删除；需要调整时请复制后修改。
+              - listitem [ref=f3e346]:
+                - button "Recruiter RECRUITER" [ref=f3e347]:
+                  - generic [ref=f3e348]: Recruiter
+                  - generic [ref=f3e349]: RECRUITER
+                - generic [ref=f3e350]: 内置
+                - button "复制" [ref=f3e352]
+                - paragraph [ref=f3e353]: 内置角色由代码维护，不能重命名或删除；需要调整时请复制后修改。
+              - listitem [ref=f3e354]:
+                - button "Report viewer REPORT_VIEWER" [ref=f3e355]:
+                  - generic [ref=f3e356]: Report viewer
+                  - generic [ref=f3e357]: REPORT_VIEWER
+                - generic [ref=f3e358]: 内置
+                - button "复制" [ref=f3e360]
+                - paragraph [ref=f3e361]: 内置角色由代码维护，不能重命名或删除；需要调整时请复制后修改。
+              - listitem [ref=f3e362]:
+                - button "Super administrator SUPER_ADMIN" [ref=f3e363]:
+                  - generic [ref=f3e364]: Super administrator
+                  - generic [ref=f3e365]: SUPER_ADMIN
+                - generic [ref=f3e366]: 内置
+                - button "复制" [ref=f3e368]
+                - paragraph [ref=f3e369]: 内置角色由代码维护，不能重命名或删除；需要调整时请复制后修改。
+              - listitem [ref=f3e370]:
+                - button "System administrator SYSTEM_ADMIN" [ref=f3e371]:
+                  - generic [ref=f3e372]: System administrator
+                  - generic [ref=f3e373]: SYSTEM_ADMIN
+                - generic [ref=f3e374]: 内置
+                - button "复制" [ref=f3e376]
+                - paragraph [ref=f3e377]: 内置角色由代码维护，不能重命名或删除；需要调整时请复制后修改。
+              - listitem [ref=f3e378]:
+                - button "Training administrator TRAINING_ADMIN" [ref=f3e379]:
+                  - generic [ref=f3e380]: Training administrator
+                  - generic [ref=f3e381]: TRAINING_ADMIN
+                - generic [ref=f3e382]: 内置
+                - button "复制" [ref=f3e384]
+                - paragraph [ref=f3e385]: 内置角色由代码维护，不能重命名或删除；需要调整时请复制后修改。
+              - listitem [ref=f3e660]:
+                - button "薪酬专员验收角色 PAYROLL_SPECIALIST_T19" [ref=f3e661]:
+                  - generic [ref=f3e662]: 薪酬专员验收角色
+                  - generic [ref=f3e663]: PAYROLL_SPECIALIST_T19
+                - generic [ref=f3e664]:
+                  - button "重命名" [ref=f3e665]
+                  - button "复制" [ref=f3e666]
+                  - button "删除" [ref=f3e667]
+          - generic [ref=f3e386]:
+            - generic [ref=f3e388]:
+              - heading "薪酬专员验收角色 的授权" [level=2] [ref=f3e668]
+              - paragraph [ref=f3e390]: 17 项动作授权 · 0 个页面
+            - button "管理员技术明细" [ref=f3e394] [cursor=pointer]
+            - tablist [ref=f3e399]:
+              - tab "页面权限" [ref=f3e400]
+              - tab "按钮动作" [ref=f3e401]
+              - tab "数据范围" [active] [selected] [ref=f3e402]
+              - tab "字段权限" [ref=f3e403]
+            - generic [ref=f3e689]:
+              - paragraph [ref=f3e690]: 每个动作只能使用能力目录声明的数据锚点；单公司部署，不提供租户或法人实体维度的锚点选项。
+              - generic [ref=f3e691]:
+                - generic [ref=f3e692]: 登录会话 · 管理
+                - generic [ref=f3e693]:
+                  - text: 数据锚点
+                  - combobox "数据锚点" [ref=f3e694]:
+                    - option "仅本人" [selected]
+              - generic [ref=f3e695]:
+                - generic [ref=f3e696]: 业务数据 · 查看
+                - generic [ref=f3e697]:
+                  - text: 数据锚点
+                  - combobox "数据锚点" [ref=f3e698]:
+                    - option "仅本人"
+                    - option "下属"
+                    - option "本部门"
+                    - option "本部门及子部门"
+                    - option "本公司" [selected]
+              - generic [ref=f3e699]:
+                - generic [ref=f3e700]: 业务数据 · 管理
+                - generic [ref=f3e701]:
+                  - text: 数据锚点
+                  - combobox "数据锚点" [ref=f3e702]:
+                    - option "本公司" [selected]
+              - generic [ref=f3e703]:
+                - generic [ref=f3e704]: 业务数据 · 查看
+                - generic [ref=f3e705]:
+                  - text: 数据锚点
+                  - combobox "数据锚点" [ref=f3e706]:
+                    - option "仅本人"
+                    - option "本部门"
+                    - option "本部门及子部门"
+                    - option "本公司" [selected]
+              - generic [ref=f3e707]:
+                - generic [ref=f3e708]: 薪资 · 导出
+                - generic [ref=f3e709]:
+                  - text: 数据锚点
+                  - combobox "数据锚点" [ref=f3e710]:
+                    - option "本公司"
+                    - option "指定工资批次" [selected]
+                - generic [ref=f3e711]:
+                  - text: 工资批次编号
+                  - spinbutton "工资批次编号" [ref=f3e712]
+                - paragraph [ref=f3e713]: 指定工资批次：授权范围由所选批次锁定，批次结束后不再扩大，此处不选择组织单元。
+              - generic [ref=f3e714]:
+                - generic [ref=f3e715]: 业务数据 · 查看
+                - generic [ref=f3e716]:
+                  - text: 数据锚点
+                  - combobox "数据锚点" [ref=f3e717]:
+                    - option "本公司" [selected]
+              - generic [ref=f3e718]:
+                - generic [ref=f3e719]: 业务数据 · 查看
+                - generic [ref=f3e720]:
+                  - text: 数据锚点
+                  - combobox "数据锚点" [ref=f3e721]:
+                    - option "仅本人"
+                    - option "本公司"
+                    - option "指定工资批次" [selected]
+                - generic [ref=f3e722]:
+                  - text: 工资批次编号
+                  - spinbutton "工资批次编号" [ref=f3e723]
+                - paragraph [ref=f3e724]: 指定工资批次：授权范围由所选批次锁定，批次结束后不再扩大，此处不选择组织单元。
+              - generic [ref=f3e725]:
+                - generic [ref=f3e726]: 业务数据 · 操作
+                - generic [ref=f3e727]:
+                  - text: 数据锚点
+                  - combobox "数据锚点" [ref=f3e728]:
+                    - option "本公司"
+                    - option "指定工资批次" [selected]
+                - generic [ref=f3e729]:
+                  - text: 工资批次编号
+                  - spinbutton "工资批次编号" [ref=f3e730]
+                - paragraph [ref=f3e731]: 指定工资批次：授权范围由所选批次锁定，批次结束后不再扩大，此处不选择组织单元。
+              - generic [ref=f3e732]:
+                - generic [ref=f3e733]: 业务数据 · 操作
+                - generic [ref=f3e734]:
+                  - text: 数据锚点
+                  - combobox "数据锚点" [ref=f3e735]:
+                    - option "本公司"
+                    - option "指定工资批次" [selected]
+                - generic [ref=f3e736]:
+                  - text: 工资批次编号
+                  - spinbutton "工资批次编号" [ref=f3e737]
+                - paragraph [ref=f3e738]: 指定工资批次：授权范围由所选批次锁定，批次结束后不再扩大，此处不选择组织单元。
+              - generic [ref=f3e739]:
+                - generic [ref=f3e740]: 业务数据 · 查看
+                - generic [ref=f3e741]:
+                  - text: 数据锚点
+                  - combobox "数据锚点" [ref=f3e742]:
+                    - option "本公司"
+                    - option "指定工资批次" [selected]
+                - generic [ref=f3e743]:
+                  - text: 工资批次编号
+                  - spinbutton "工资批次编号" [ref=f3e744]
+                - paragraph [ref=f3e745]: 指定工资批次：授权范围由所选批次锁定，批次结束后不再扩大，此处不选择组织单元。
+              - generic [ref=f3e746]:
+                - generic [ref=f3e747]: 合同 · 查看
+                - generic [ref=f3e748]:
+                  - text: 数据锚点
+                  - combobox "数据锚点" [ref=f3e749]:
+                    - option "仅本人"
+                    - option "下属"
+                    - option "本部门"
+                    - option "本部门及子部门"
+                    - option "本公司" [selected]
+              - generic [ref=f3e750]:
+                - generic [ref=f3e751]: 员工 · 查看
+                - generic [ref=f3e752]:
+                  - text: 数据锚点
+                  - combobox "数据锚点" [ref=f3e753]:
+                    - option "仅本人"
+                    - option "下属"
+                    - option "本部门"
+                    - option "本部门及子部门"
+                    - option "本公司" [selected]
+                    - option "指定案例"
+                    - option "指定工资批次"
+              - generic [ref=f3e754]:
+                - generic [ref=f3e755]: 业务数据 · 查看
+                - generic [ref=f3e756]:
+                  - text: 数据锚点
+                  - combobox "数据锚点" [ref=f3e757]:
+                    - option "仅本人"
+                    - option "下属"
+                    - option "本部门"
+                    - option "本部门及子部门"
+                    - option "本公司" [selected]
+              - generic [ref=f3e758]:
+                - generic [ref=f3e759]: 报表 · 查看
+                - generic [ref=f3e760]:
+                  - text: 数据锚点
+                  - combobox "数据锚点" [ref=f3e761]:
+                    - option "仅本人"
+                    - option "下属"
+                    - option "本部门"
+                    - option "本部门及子部门"
+                    - option "本公司" [selected]
+              - generic [ref=f3e762]:
+                - generic [ref=f3e763]: 加班 · 查看
+                - generic [ref=f3e764]:
+                  - text: 数据锚点
+                  - combobox "数据锚点" [ref=f3e765]:
+                    - option "仅本人"
+                    - option "下属"
+                    - option "本部门"
+                    - option "本部门及子部门"
+                    - option "本公司" [selected]
+              - generic [ref=f3e766]:
+                - generic [ref=f3e767]: 加班 · 操作
+                - generic [ref=f3e768]:
+                  - text: 数据锚点
+                  - combobox "数据锚点" [ref=f3e769]:
+                    - option "本公司"
+                    - option "指定工资批次" [selected]
+                - generic [ref=f3e770]:
+                  - text: 工资批次编号
+                  - spinbutton "工资批次编号" [ref=f3e771]
+                - paragraph [ref=f3e772]: 指定工资批次：授权范围由所选批次锁定，批次结束后不再扩大，此处不选择组织单元。
+              - generic [ref=f3e773]:
+                - generic [ref=f3e774]: 业务数据 · 查看
+                - generic [ref=f3e775]:
+                  - text: 数据锚点
+                  - combobox "数据锚点" [ref=f3e776]:
+                    - option "仅本人"
+                    - option "下属"
+                    - option "本部门"
+                    - option "本部门及子部门"
+                    - option "本公司" [selected]
+            - generic [ref=f3e635]:
+              - button "保存授权" [ref=f3e687]
+              - generic [ref=f3e688]: 保存将在一个事务内提交四类变更。
+    - contentinfo [ref=f3e637]:
+      - generic [ref=f3e638]: 澄明科技 HRMS
+      - generic [ref=f3e639]: 审计与导出操作会记录操作者、目的与时间
+      - generic [ref=f3e640]: 构建 aeccadc

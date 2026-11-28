@@ -6,7 +6,10 @@ namespace Tests\Feature\Payroll;
 
 use App\Modules\Payroll\Enums\PayrollRunStatus;
 use App\Modules\Payroll\Models\PayrollRun;
+use App\Modules\Payroll\Models\PayrollRunEmployee;
+use App\Modules\Payroll\Models\PayrollScheme;
 use App\Modules\Payroll\Models\PayrollYtd;
+use App\Modules\Payroll\Models\PayrollYtdLedgerEntry;
 use App\Modules\Payroll\Models\Payslip;
 use App\Modules\Payroll\Services\ApprovalService;
 use App\Modules\Payroll\Services\CalculationService;
@@ -23,7 +26,7 @@ final class CorrectionRunTest extends PayrollTestCase
         $base = $this->seedPayrollBase(1_000_000);
         $original = $this->closedJanuaryRun($base);
         $originalPayslip = Payslip::query()->where('run_id', $original->id)->firstOrFail();
-        $originalEmployee = \App\Modules\Payroll\Models\PayrollRunEmployee::query()->where('run_id', $original->id)->firstOrFail();
+        $originalEmployee = PayrollRunEmployee::query()->where('run_id', $original->id)->firstOrFail();
         $originalSnapshot = $originalPayslip->toArray();
 
         // A previously missed deduction entered after close.
@@ -58,7 +61,7 @@ final class CorrectionRunTest extends PayrollTestCase
         $this->assertSame(0, (int) $correction->gross_cents);
         $this->assertLessThan(0, (int) $correction->net_cents);
 
-        $correctionEmployee = \App\Modules\Payroll\Models\PayrollRunEmployee::query()->where('run_id', $correction->id)->firstOrFail();
+        $correctionEmployee = PayrollRunEmployee::query()->where('run_id', $correction->id)->firstOrFail();
         $this->assertSame(0, (int) $correctionEmployee->gross_cents);
         $this->assertSame(100_000, (int) $correctionEmployee->deductions_cents);
 
@@ -87,10 +90,17 @@ final class CorrectionRunTest extends PayrollTestCase
 
         $first = $this->postAdjustmentAndPublish($original, -50_000, '2026-02', 11);
         $second = $this->postAdjustmentAndPublish($original, 20_000, '2026-03', 12);
+        $first = $first->refresh();
+        $second = $second->refresh();
+        $this->assertSame(1, (int) $first->correction_sequence);
+        $this->assertSame((int) $original->id, (int) $first->correction_baseline_run_id);
+        $this->assertSame([], (array) ($first->prior_correction_ids_json ?? []));
+        $this->assertSame(2, (int) $second->correction_sequence);
+        $this->assertSame((int) $first->id, (int) $second->correction_baseline_run_id);
+        $this->assertSame([(int) $first->id], (array) ($second->prior_correction_ids_json ?? []));
 
-        $firstEmployee = \App\Modules\Payroll\Models\PayrollRunEmployee::query()->where('run_id', $first->id)->firstOrFail();
-        $secondEmployee = \App\Modules\Payroll\Models\PayrollRunEmployee::query()->where('run_id', $second->id)->firstOrFail();
-
+        $firstEmployee = PayrollRunEmployee::query()->where('run_id', $first->id)->firstOrFail();
+        $secondEmployee = PayrollRunEmployee::query()->where('run_id', $second->id)->firstOrFail();
         // A retro deduction is net-only; a retro earning is gross and still
         // attracts employee SI, housing fund and cumulative tax.
         $this->assertSame(-50_000, (int) $firstEmployee->net_cents);
@@ -115,6 +125,128 @@ final class CorrectionRunTest extends PayrollTestCase
         $this->assertSame((int) $ytdAfterOriginal->net_cents - 50_000 + 16_490, (int) $ytd->net_cents);
     }
 
+    public function test_correction_target_baseline_and_delta_are_cumulative_for_ac12_pattern(): void
+    {
+        $base = $this->seedPayrollBase(961_796);
+        $original = $this->closedJanuaryRun($base);
+        $originalNet = (int) PayrollRunEmployee::query()->where('run_id', $original->id)->firstOrFail()->net_cents;
+        $this->assertSame(808_000, $originalNet);
+
+        // Synthetic gross adjustments chosen so 8% SI/7% HF/3% tax rounding
+        // produces AC-12's exact 8300.00 and 8350.00 target net.
+        $first = $this->postAdjustmentAndPublish($original, 26_681, '2026-02', 11)->refresh();
+        $this->assertSame($originalNet, (int) $first->correction_baseline_net_cents);
+        $this->assertSame(830_000, (int) $first->correction_target_net_cents);
+        $this->assertSame(22_000, (int) $first->correction_delta_net_cents);
+        $this->assertSame(830_000, (int) $first->correction_cumulative_net_cents);
+
+        $second = $this->postAdjustmentAndPublish($original, 6_065, '2026-03', 12)->refresh();
+        $this->assertSame(830_000, (int) $second->correction_baseline_net_cents);
+        $this->assertSame(835_000, (int) $second->correction_target_net_cents);
+        $this->assertSame(5_000, (int) $second->correction_delta_net_cents);
+        $this->assertSame(835_000, (int) $second->correction_cumulative_net_cents);
+        $this->assertSame(5_000, (int) PayrollRunEmployee::query()->where('run_id', $second->id)->firstOrFail()->net_cents);
+
+        $chain = app(ReconciliationService::class)->chain($second);
+        $this->assertTrue($chain['passed'], json_encode($chain));
+        $this->assertSame(835_000, (int) $chain['payable_net_cents']);
+    }
+
+    public function test_ytd_ledger_is_signed_idempotent_and_carries_negative_balance(): void
+    {
+        $base = $this->seedPayrollBase(1_000_000);
+        $original = $this->closedJanuaryRun($base);
+        $originalNet = (int) PayrollRunEmployee::query()->where('run_id', $original->id)->firstOrFail()->net_cents;
+        $originalYtd = PayrollYtd::query()->firstOrFail();
+        PayrollScheme::query()->whereKey((int) $base['scheme']->id)->firstOrFail()
+            ->forceFill(['allow_negative_net' => true])->save();
+
+        $correction = $this->postAdjustmentAndPublish($original, -2_000_000, '2026-02', 11);
+        $ytd = PayrollYtd::query()->firstOrFail();
+        $this->assertSame($originalNet - 2_000_000, (int) $ytd->net_cents);
+        $this->assertSame((int) $ytd->net_cents, (int) $ytd->carry_forward_cents);
+        $this->assertLessThan(0, (int) $ytd->carry_forward_cents);
+
+        $this->assertDatabaseCount('payroll_ytd_ledger_entries', 2);
+        $entry = PayrollYtdLedgerEntry::query()->where('source_run_id', $correction->id)->firstOrFail();
+        $this->assertSame('CORRECTION', (string) $entry->source_type);
+        $this->assertSame(-2_000_000, (int) $entry->net_cents);
+        $this->assertSame((int) $ytd->net_cents, (int) $entry->carry_forward_cents);
+        $this->assertSame(64, strlen((string) $entry->source_hash));
+
+        // Re-publishing the same correction is idempotent and must not fold
+        // the signed ledger twice.
+        app(ApprovalService::class)->publish((int) $correction->id, 23);
+        $this->assertDatabaseCount('payroll_ytd_ledger_entries', 2);
+        $this->assertSame((int) $ytd->net_cents, (int) PayrollYtd::query()->firstOrFail()->net_cents);
+        $this->assertSame((int) $originalYtd->gross_cents, (int) PayrollYtd::query()->firstOrFail()->gross_cents);
+    }
+
+    public function test_cumulative_negative_and_positive_corrections_keep_one_signed_projection(): void
+    {
+        $base = $this->seedPayrollBase(1_000_000);
+        $original = $this->closedJanuaryRun($base);
+        $originalNet = (int) PayrollRunEmployee::query()->where('run_id', $original->id)->firstOrFail()->net_cents;
+
+        $first = $this->postAdjustmentAndPublish($original, -50_000, '2026-02', 11);
+        $second = $this->postAdjustmentAndPublish($original, 20_000, '2026-03', 12);
+        $first = $first->refresh();
+        $second = $second->refresh();
+        $this->assertSame(1, (int) $first->correction_sequence);
+        $this->assertSame((int) $original->id, (int) $first->correction_baseline_run_id);
+        $this->assertSame([], (array) ($first->prior_correction_ids_json ?? []));
+        $this->assertSame(2, (int) $second->correction_sequence);
+        $this->assertSame((int) $first->id, (int) $second->correction_baseline_run_id);
+        $this->assertSame([(int) $first->id], (array) ($second->prior_correction_ids_json ?? []));
+        $entries = PayrollYtdLedgerEntry::query()->orderBy('id')->get();
+        $this->assertCount(3, $entries);
+        $this->assertSame(['PAYROLL', 'CORRECTION', 'CORRECTION'], $entries->pluck('source_type')->all());
+
+        $ytd = PayrollYtd::query()->firstOrFail();
+        $expected = $originalNet + (int) $first->net_cents + (int) $second->net_cents;
+        $this->assertSame($expected, (int) $ytd->net_cents);
+        $this->assertSame($expected, (int) $entries->sum('net_cents'));
+        $this->assertSame(min(0, $expected), (int) $ytd->carry_forward_cents);
+
+        $chain = app(ReconciliationService::class)->chain($second->refresh());
+        $this->assertSame($expected, (int) $chain['payable_net_cents']);
+        $this->assertCount(3, (array) $chain['ytd_ledger']);
+        $this->assertSame($expected, (int) array_sum(array_column((array) $chain['ytd_ledger'], 'net_cents')));
+    }
+
+    public function test_unpaid_correction_can_be_voided_and_retried_without_reusing_the_records(): void
+    {
+        $base = $this->seedPayrollBase(1_000_000);
+        $original = $this->closedJanuaryRun($base);
+        $corrections = app(CorrectionService::class);
+
+        $voided = $corrections->create((int) $original->id, 11, '2026-03', 'Synthetic correction that will be voided.');
+        $voided = $corrections->voidUnpaid((int) $voided->id, 11, 'Synthetic reason for voiding the unpaid correction.');
+        $this->assertSame('VOID', (string) $voided->correction_status);
+        $this->assertNotNull($voided->correction_voided_at);
+        $this->assertSame(PayrollRunStatus::DRAFT, $voided->status);
+
+        $retry = $corrections->create((int) $original->id, 11, '2026-03', 'Synthetic retry after a voided correction.');
+        $this->assertNotSame((int) $voided->id, (int) $retry->id);
+        $this->assertSame('OPEN', (string) $retry->correction_status);
+        $this->assertSame(1, (int) $retry->correction_sequence);
+        $this->assertSame((int) $original->id, (int) $retry->correction_baseline_run_id);
+        $this->assertSame([], (array) ($retry->prior_correction_ids_json ?? []));
+    }
+
+    public function test_published_correction_cannot_be_voided_as_unpaid(): void
+    {
+        $base = $this->seedPayrollBase(1_000_000);
+        $original = $this->closedJanuaryRun($base);
+        $correction = app(CorrectionService::class)->create((int) $original->id, 11, '2026-04', 'Synthetic published correction void attempt.');
+        $correction = app(PayrollRunService::class)->lockInputs((int) $correction->id, 11);
+        app(CalculationService::class)->calculate($correction, 11);
+        $this->publishCorrection($correction->refresh());
+
+        $this->expectException(ConflictException::class);
+        app(CorrectionService::class)->voidUnpaid((int) $correction->id, 11, 'Synthetic reason for an invalid published void.');
+    }
+
     public function test_correction_requires_a_published_original(): void
     {
         $base = $this->seedPayrollBase();
@@ -126,7 +258,7 @@ final class CorrectionRunTest extends PayrollTestCase
     }
 
     /**
-     * @param  array{scheme: \App\Modules\Payroll\Models\PayrollScheme, employment_id: int}  $base
+     * @param  array{scheme: PayrollScheme, employment_id: int}  $base
      */
     private function closedJanuaryRun(array $base): PayrollRun
     {
@@ -146,7 +278,7 @@ final class CorrectionRunTest extends PayrollTestCase
 
     private function postAdjustmentAndPublish(PayrollRun $original, int $amountCents, string $period, int $actor): PayrollRun
     {
-        $employmentId = (int) \App\Modules\Payroll\Models\PayrollRunEmployee::query()
+        $employmentId = (int) PayrollRunEmployee::query()
             ->where('run_id', $original->id)
             ->firstOrFail()
             ->employment_id;

@@ -1,0 +1,2 @@
+factoryhr/frontend:v24-t19e d2a8cdb5aa9e
+factoryhr/php-app:v24-t19e bd0ebe09a288

@@ -98,6 +98,27 @@ final class EmploymentContractService
                 throw new ConflictException('Contract number must be unique.', ['reason' => 'CONTRACT_NO_DUPLICATE']);
             }
 
+            $newStart = (string) $data['start_date'];
+            $newEnd = isset($data['end_date']) ? (string) $data['end_date'] : '9999-12-31';
+            $newStatus = (string) ($data['status'] ?? 'ACTIVE');
+
+            if ($newStatus !== 'DRAFT') {
+                $overlap = EmploymentContract::query()
+                    ->where('employment_id', $employmentId)
+                    ->whereIn('status', EmploymentContract::PERIOD_RESERVING_STATUSES)
+                    ->where('start_date', '<=', $newEnd)
+                    ->where(function ($query) use ($newStart): void {
+                        $query->whereNull('end_date')->orWhere('end_date', '>=', $newStart);
+                    })
+                    ->exists();
+
+                if ($overlap) {
+                    throw new ConflictException('The contract period overlaps another effective contract.', [
+                        'reason' => 'CONTRACT_PERIOD_OVERLAP',
+                    ]);
+                }
+            }
+
             /** @var EmploymentContract $contract */
             $contract = EmploymentContract::query()->create([
                 'employment_id' => $employmentId,
@@ -113,7 +134,8 @@ final class EmploymentContractService
                 'work_location' => isset($data['work_location']) ? (string) $data['work_location'] : null,
                 'probation_end_date' => isset($data['probation_end_date']) ? (string) $data['probation_end_date'] : null,
                 'recorded_at' => $this->clock->now(),
-                'source_type' => 'API',
+                'source_type' => (string) ($data['source_type'] ?? 'API'),
+                'source_id' => isset($data['source_id']) ? (int) $data['source_id'] : null,
             ]);
 
             if ($current !== null) {

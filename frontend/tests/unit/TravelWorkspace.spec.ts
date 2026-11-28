@@ -136,10 +136,15 @@ function installReads(): void {
 async function mountTravel(
   path = '/travel',
   capabilities: string[] = ALL_CAPABILITIES,
+  employmentId: number | null = 1,
 ): Promise<{ wrapper: ReturnType<typeof mount>; router: Router }> {
   const pinia = createPinia()
   setActivePinia(pinia)
-  useSessionStore().$patch({ status: 'authenticated', capabilities })
+  useSessionStore().$patch({
+    status: 'authenticated',
+    capabilities,
+    principal: employmentId === null ? null : { employmentId } as never,
+  })
 
   const router = createRouter({
     history: createMemoryHistory(),
@@ -453,5 +458,15 @@ describe('Travel API normalisation and money helpers', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="travel-requests-error"]').text()).toContain('req-travel-load')
+  })
+})
+
+describe('TravelWorkspace no-employment gating', () => {
+  it('does not request self travel when the principal has no employment', async () => {
+    const { wrapper } = await mountTravel('/travel', ['time.travel.read'], null)
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="no-active-employment"]').exists()).toBe(true)
+    expect(resource.get.mock.calls.some(([path]) => path === '/v1/travel/requests')).toBe(false)
   })
 })

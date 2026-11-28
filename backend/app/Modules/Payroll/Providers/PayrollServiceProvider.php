@@ -9,20 +9,33 @@ use App\Modules\Payroll\Console\PayrollParallelCheckCommand;
 use App\Modules\Payroll\Console\PayrollReconciliationCommand;
 use App\Modules\Payroll\Console\SeedDemoPayrollRunCommand;
 use App\Modules\Payroll\Console\SeedPayrollParametersCommand;
+use App\Modules\Payroll\Contracts\BenefitPayrollInputDirectory;
+use App\Modules\Payroll\Contracts\CompensationVersionDirectory;
+use App\Modules\Payroll\Contracts\OnboardingCompensationDraftWriter;
 use App\Modules\Payroll\Contracts\PayrollApprovalEffectPort;
 use App\Modules\Payroll\Contracts\PayrollCostDirectory;
 use App\Modules\Payroll\Contracts\PayrollRunDirectory;
+use App\Modules\Payroll\Contracts\PayslipNotificationDirectory;
+use App\Modules\Payroll\Contracts\PayslipPublicationNotifier;
 use App\Modules\Payroll\Contracts\PayslipWorkspaceDirectory;
+use App\Modules\Payroll\Contracts\PerformanceBonusDirectory;
 use App\Modules\Payroll\Domain\PayrollCalculator;
+use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Services\ApprovalService;
+use App\Modules\Payroll\Services\BenefitPayrollInputService;
 use App\Modules\Payroll\Services\CalculationService;
 use App\Modules\Payroll\Services\CorrectionService;
+use App\Modules\Payroll\Services\EloquentCompensationVersionDirectory;
 use App\Modules\Payroll\Services\EloquentPayrollRunDirectory;
+use App\Modules\Payroll\Services\EloquentPayslipNotificationDirectory;
 use App\Modules\Payroll\Services\EloquentPayslipWorkspaceDirectory;
+use App\Modules\Payroll\Services\EmptyPerformanceBonusDirectory;
 use App\Modules\Payroll\Services\ExportService;
+use App\Modules\Payroll\Services\OnboardingCompensationDraftService;
 use App\Modules\Payroll\Services\PayrollApprovalEffectService;
 use App\Modules\Payroll\Services\PayrollParallelCheckService;
 use App\Modules\Payroll\Services\PayrollPeriodLockReaderService;
+use App\Modules\Payroll\Services\PayrollPublicationEventBridge;
 use App\Modules\Payroll\Services\PayrollRunService;
 use App\Modules\Payroll\Services\PayrollYtdService;
 use App\Modules\Payroll\Services\ReceiptReconciliationService;
@@ -45,8 +58,14 @@ final class PayrollServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(PayrollApprovalEffectPort::class, PayrollApprovalEffectService::class);
+        $this->app->bind(OnboardingCompensationDraftWriter::class, OnboardingCompensationDraftService::class);
+        $this->app->bind(CompensationVersionDirectory::class, EloquentCompensationVersionDirectory::class);
+        $this->app->bindIf(BenefitPayrollInputDirectory::class, BenefitPayrollInputService::class);
+        $this->app->bindIf(PerformanceBonusDirectory::class, EmptyPerformanceBonusDirectory::class);
         $this->app->bindIf(PayrollCostDirectory::class, UnavailablePayrollCostDirectory::class);
         $this->app->bind(PayslipWorkspaceDirectory::class, EloquentPayslipWorkspaceDirectory::class);
+        $this->app->bind(PayslipNotificationDirectory::class, EloquentPayslipNotificationDirectory::class);
+        $this->app->bindIf(PayslipPublicationNotifier::class, \App\Modules\Payroll\Services\NullPayslipPublicationNotifier::class);
         $this->app->bindIf(PayrollRunDirectory::class, EloquentPayrollRunDirectory::class);
         if (! $this->app->environment('testing')) {
             $this->app->bind(PayrollRunMembershipDirectory::class, EloquentPayrollRunMembershipDirectory::class);
@@ -69,6 +88,10 @@ final class PayrollServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        PayrollRun::updated(function (PayrollRun $run): void {
+            $this->app->make(PayrollPublicationEventBridge::class)->handle($run);
+        });
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 SeedPayrollParametersCommand::class,

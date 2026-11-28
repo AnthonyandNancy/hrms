@@ -1,0 +1,10 @@
+mysql: [Warning] Using a password on the command line interface can be insecure.
+notification_deliveries
+notification_outbox
+notification_templates
+notifications
+payroll_ytd
+payroll_ytd_ledger_entries
+payslip_lines
+payslips
+stg_payroll_ytd

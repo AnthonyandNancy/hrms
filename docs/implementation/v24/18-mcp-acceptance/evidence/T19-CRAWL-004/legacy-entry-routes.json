@@ -1,0 +1,932 @@
+[
+  {
+    "no": 1,
+    "old": "/login",
+    "decision": "KEEP",
+    "target": "/login"
+  },
+  {
+    "no": 2,
+    "old": "/workspace",
+    "decision": "KEEP",
+    "target": "/workspace"
+  },
+  {
+    "no": 3,
+    "old": "/forbidden",
+    "decision": "KEEP",
+    "target": "/forbidden"
+  },
+  {
+    "no": 4,
+    "old": "/not-found",
+    "decision": "KEEP",
+    "target": "/not-found"
+  },
+  {
+    "no": 5,
+    "old": "/account/mfa",
+    "decision": "FOLD",
+    "target": "/account"
+  },
+  {
+    "no": 6,
+    "old": "/account/sessions",
+    "decision": "FOLD",
+    "target": "/account"
+  },
+  {
+    "no": 141,
+    "old": "/account",
+    "decision": "KEEP",
+    "target": "/account"
+  },
+  {
+    "no": 150,
+    "old": "/self-service",
+    "decision": "FOLD",
+    "target": "/workspace"
+  },
+  {
+    "no": 7,
+    "old": "/dashboard",
+    "decision": "KEEP",
+    "target": "/dashboard"
+  },
+  {
+    "no": 8,
+    "old": "/dashboard/departments",
+    "decision": "FOLD",
+    "target": "/dashboard"
+  },
+  {
+    "no": 9,
+    "old": "/dashboard/workforce",
+    "decision": "FOLD",
+    "target": "/dashboard"
+  },
+  {
+    "no": 10,
+    "old": "/dashboard/changes",
+    "decision": "FOLD",
+    "target": "/dashboard"
+  },
+  {
+    "no": 11,
+    "old": "/dashboard/tasks",
+    "decision": "FOLD",
+    "target": "/dashboard"
+  },
+  {
+    "no": 12,
+    "old": "/dashboard/recruitment",
+    "decision": "FOLD",
+    "target": "/dashboard"
+  },
+  {
+    "no": 13,
+    "old": "/reports",
+    "decision": "KEEP",
+    "target": "/reports"
+  },
+  {
+    "no": 14,
+    "old": "/reports/headcount",
+    "decision": "FOLD",
+    "target": "/reports"
+  },
+  {
+    "no": 15,
+    "old": "/reports/attendance",
+    "decision": "FOLD",
+    "target": "/reports"
+  },
+  {
+    "no": 16,
+    "old": "/reports/payroll",
+    "decision": "FOLD",
+    "target": "/reports"
+  },
+  {
+    "no": 17,
+    "old": "/reports/hiring",
+    "decision": "FOLD",
+    "target": "/reports"
+  },
+  {
+    "no": 18,
+    "old": "/reports/talent",
+    "decision": "FOLD",
+    "target": "/reports"
+  },
+  {
+    "no": 19,
+    "old": "/reports/builder",
+    "decision": "FOLD",
+    "target": "/reports"
+  },
+  {
+    "no": 20,
+    "old": "/reports/subscriptions",
+    "decision": "FOLD",
+    "target": "/reports"
+  },
+  {
+    "no": 21,
+    "old": "/reports/exports",
+    "decision": "FOLD",
+    "target": "/reports"
+  },
+  {
+    "no": 22,
+    "old": "/hr/employees",
+    "decision": "KEEP",
+    "target": "/hr/employees"
+  },
+  {
+    "no": 23,
+    "old": "/hr/employees/:id",
+    "decision": "KEEP",
+    "target": "/hr/employees/:id"
+  },
+  {
+    "no": 24,
+    "old": "/hr/employees/:id/education",
+    "decision": "FOLD",
+    "target": "/hr/employees/:id"
+  },
+  {
+    "no": 25,
+    "old": "/hr/employees/:id/work-history",
+    "decision": "FOLD",
+    "target": "/hr/employees/:id"
+  },
+  {
+    "no": 26,
+    "old": "/hr/employees/:id/contacts",
+    "decision": "FOLD",
+    "target": "/hr/employees/:id"
+  },
+  {
+    "no": 27,
+    "old": "/hr/employees/:id/credentials",
+    "decision": "FOLD",
+    "target": "/hr/employees/:id"
+  },
+  {
+    "no": 28,
+    "old": "/hr/employees/:id/history",
+    "decision": "FOLD",
+    "target": "/hr/employees/:id"
+  },
+  {
+    "no": 29,
+    "old": "/hr/employees/:id/files",
+    "decision": "FOLD",
+    "target": "/hr/employees/:id"
+  },
+  {
+    "no": 30,
+    "old": "/hr/employees/:id/changes",
+    "decision": "FOLD",
+    "target": "/hr/employees/:id"
+  },
+  {
+    "no": 31,
+    "old": "/hr/employees/imports",
+    "decision": "FOLD",
+    "target": "/hr/employees"
+  },
+  {
+    "no": 32,
+    "old": "/hr/departments",
+    "decision": "KEEP",
+    "target": "/hr/departments"
+  },
+  {
+    "no": 33,
+    "old": "/hr/departments/list",
+    "decision": "FOLD",
+    "target": "/hr/departments"
+  },
+  {
+    "no": 34,
+    "old": "/hr/departments/members",
+    "decision": "FOLD",
+    "target": "/hr/departments"
+  },
+  {
+    "no": 35,
+    "old": "/hr/departments/move",
+    "decision": "FOLD",
+    "target": "/hr/departments"
+  },
+  {
+    "no": 36,
+    "old": "/hr/departments/staffing",
+    "decision": "FOLD",
+    "target": "/hr/departments"
+  },
+  {
+    "no": 37,
+    "old": "/hr/positions",
+    "decision": "KEEP",
+    "target": "/hr/positions"
+  },
+  {
+    "no": 38,
+    "old": "/hr/positions/headcount",
+    "decision": "FOLD",
+    "target": "/hr/positions"
+  },
+  {
+    "no": 39,
+    "old": "/hr/positions/requirements",
+    "decision": "FOLD",
+    "target": "/hr/positions"
+  },
+  {
+    "no": 40,
+    "old": "/hr/positions/grades",
+    "decision": "FOLD",
+    "target": "/hr/positions"
+  },
+  {
+    "no": 41,
+    "old": "/hr/positions/staff",
+    "decision": "FOLD",
+    "target": "/hr/positions"
+  },
+  {
+    "no": 42,
+    "old": "/hr/movements",
+    "decision": "KEEP",
+    "target": "/hr/movements"
+  },
+  {
+    "no": 43,
+    "old": "/hr/movements/onboarding",
+    "decision": "FOLD",
+    "target": "/hr/movements"
+  },
+  {
+    "no": 44,
+    "old": "/hr/movements/probation",
+    "decision": "FOLD",
+    "target": "/hr/movements"
+  },
+  {
+    "no": 45,
+    "old": "/hr/movements/transfer",
+    "decision": "FOLD",
+    "target": "/hr/movements"
+  },
+  {
+    "no": 46,
+    "old": "/hr/movements/salary-change",
+    "decision": "FOLD",
+    "target": "/hr/movements"
+  },
+  {
+    "no": 47,
+    "old": "/hr/movements/secondment",
+    "decision": "FOLD",
+    "target": "/hr/movements"
+  },
+  {
+    "no": 48,
+    "old": "/hr/movements/offboarding",
+    "decision": "FOLD",
+    "target": "/hr/movements"
+  },
+  {
+    "no": 49,
+    "old": "/hr/movements/:id",
+    "decision": "KEEP",
+    "target": "/hr/movements/:id"
+  },
+  {
+    "no": 50,
+    "old": "/hr/movements/calendar",
+    "decision": "FOLD",
+    "target": "/hr/movements"
+  },
+  {
+    "no": 51,
+    "old": "/hr/contracts",
+    "decision": "KEEP",
+    "target": "/hr/contracts"
+  },
+  {
+    "no": 52,
+    "old": "/hr/contracts/:id",
+    "decision": "KEEP",
+    "target": "/hr/contracts/:id"
+  },
+  {
+    "no": 53,
+    "old": "/hr/contracts/renewals",
+    "decision": "FOLD",
+    "target": "/hr/contracts"
+  },
+  {
+    "no": 54,
+    "old": "/hr/contracts/changes",
+    "decision": "FOLD",
+    "target": "/hr/contracts"
+  },
+  {
+    "no": 55,
+    "old": "/hr/contracts/expiry",
+    "decision": "FOLD",
+    "target": "/hr/contracts"
+  },
+  {
+    "no": 56,
+    "old": "/hr/contracts/templates",
+    "decision": "FOLD",
+    "target": "/hr/contracts"
+  },
+  {
+    "no": 57,
+    "old": "/attendance",
+    "decision": "KEEP",
+    "target": "/attendance"
+  },
+  {
+    "no": 58,
+    "old": "/attendance/punches",
+    "decision": "FOLD",
+    "target": "/attendance"
+  },
+  {
+    "no": 59,
+    "old": "/attendance/calendar",
+    "decision": "FOLD",
+    "target": "/attendance"
+  },
+  {
+    "no": 60,
+    "old": "/attendance/rules",
+    "decision": "FOLD",
+    "target": "/attendance"
+  },
+  {
+    "no": 61,
+    "old": "/attendance/shifts",
+    "decision": "FOLD",
+    "target": "/attendance"
+  },
+  {
+    "no": 62,
+    "old": "/attendance/schedules",
+    "decision": "FOLD",
+    "target": "/attendance"
+  },
+  {
+    "no": 63,
+    "old": "/attendance/corrections",
+    "decision": "FOLD",
+    "target": "/attendance"
+  },
+  {
+    "no": 64,
+    "old": "/attendance/exceptions",
+    "decision": "FOLD",
+    "target": "/attendance"
+  },
+  {
+    "no": 65,
+    "old": "/attendance/closing",
+    "decision": "FOLD",
+    "target": "/attendance"
+  },
+  {
+    "no": 66,
+    "old": "/attendance/devices",
+    "decision": "FOLD",
+    "target": "/attendance"
+  },
+  {
+    "no": 67,
+    "old": "/leave",
+    "decision": "KEEP",
+    "target": "/leave"
+  },
+  {
+    "no": 68,
+    "old": "/leave/requests",
+    "decision": "FOLD",
+    "target": "/leave"
+  },
+  {
+    "no": 69,
+    "old": "/leave/types",
+    "decision": "FOLD",
+    "target": "/leave"
+  },
+  {
+    "no": 70,
+    "old": "/leave/policies",
+    "decision": "FOLD",
+    "target": "/leave"
+  },
+  {
+    "no": 71,
+    "old": "/leave/balances",
+    "decision": "FOLD",
+    "target": "/leave"
+  },
+  {
+    "no": 72,
+    "old": "/leave/calendar",
+    "decision": "FOLD",
+    "target": "/leave"
+  },
+  {
+    "no": 73,
+    "old": "/leave/cancellations",
+    "decision": "FOLD",
+    "target": "/leave"
+  },
+  {
+    "no": 74,
+    "old": "/leave/reports",
+    "decision": "FOLD",
+    "target": "/leave"
+  },
+  {
+    "no": 75,
+    "old": "/overtime",
+    "decision": "KEEP",
+    "target": "/overtime"
+  },
+  {
+    "no": 76,
+    "old": "/overtime/requests",
+    "decision": "FOLD",
+    "target": "/overtime"
+  },
+  {
+    "no": 77,
+    "old": "/overtime/policies",
+    "decision": "FOLD",
+    "target": "/overtime"
+  },
+  {
+    "no": 78,
+    "old": "/overtime/confirm",
+    "decision": "FOLD",
+    "target": "/overtime"
+  },
+  {
+    "no": 79,
+    "old": "/overtime/timeoff",
+    "decision": "FOLD",
+    "target": "/overtime"
+  },
+  {
+    "no": 80,
+    "old": "/overtime/settlement",
+    "decision": "FOLD",
+    "target": "/overtime"
+  },
+  {
+    "no": 81,
+    "old": "/travel",
+    "decision": "KEEP",
+    "target": "/travel"
+  },
+  {
+    "no": 82,
+    "old": "/travel/requests",
+    "decision": "FOLD",
+    "target": "/travel"
+  },
+  {
+    "no": 83,
+    "old": "/travel/policies",
+    "decision": "FOLD",
+    "target": "/travel"
+  },
+  {
+    "no": 84,
+    "old": "/travel/approval",
+    "decision": "FOLD",
+    "target": "/travel"
+  },
+  {
+    "no": 85,
+    "old": "/travel/changes",
+    "decision": "FOLD",
+    "target": "/travel"
+  },
+  {
+    "no": 86,
+    "old": "/travel/reports",
+    "decision": "FOLD",
+    "target": "/travel"
+  },
+  {
+    "no": 87,
+    "old": "/travel/expenses",
+    "decision": "FOLD",
+    "target": "/travel"
+  },
+  {
+    "no": 88,
+    "old": "/payroll",
+    "decision": "KEEP",
+    "target": "/payroll"
+  },
+  {
+    "no": 89,
+    "old": "/payroll/runs/:id",
+    "decision": "KEEP",
+    "target": "/payroll/runs/:id"
+  },
+  {
+    "no": 90,
+    "old": "/payroll/components",
+    "decision": "FOLD",
+    "target": "/payroll"
+  },
+  {
+    "no": 91,
+    "old": "/payroll/plans",
+    "decision": "FOLD",
+    "target": "/payroll"
+  },
+  {
+    "no": 92,
+    "old": "/payroll/employee-plans",
+    "decision": "FOLD",
+    "target": "/payroll"
+  },
+  {
+    "no": 93,
+    "old": "/payroll/statutory",
+    "decision": "FOLD",
+    "target": "/payroll"
+  },
+  {
+    "no": 94,
+    "old": "/payroll/inputs",
+    "decision": "FOLD",
+    "target": "/payroll"
+  },
+  {
+    "no": 95,
+    "old": "/payroll/batches",
+    "decision": "FOLD",
+    "target": "/payroll"
+  },
+  {
+    "no": 96,
+    "old": "/payroll/reviews",
+    "decision": "FOLD",
+    "target": "/payroll"
+  },
+  {
+    "no": 97,
+    "old": "/payroll/disbursement",
+    "decision": "FOLD",
+    "target": "/payroll"
+  },
+  {
+    "no": 98,
+    "old": "/payroll/payslips",
+    "decision": "FOLD",
+    "target": "/payroll"
+  },
+  {
+    "no": 99,
+    "old": "/payroll/adjustments",
+    "decision": "FOLD",
+    "target": "/payroll"
+  },
+  {
+    "no": 100,
+    "old": "/payroll/reports",
+    "decision": "FOLD",
+    "target": "/payroll"
+  },
+  {
+    "no": 151,
+    "old": "/benefits",
+    "decision": "KEEP",
+    "target": "/benefits"
+  },
+  {
+    "no": 101,
+    "old": "/performance",
+    "decision": "KEEP",
+    "target": "/performance"
+  },
+  {
+    "no": 102,
+    "old": "/performance/templates",
+    "decision": "FOLD",
+    "target": "/performance"
+  },
+  {
+    "no": 103,
+    "old": "/performance/indicators",
+    "decision": "FOLD",
+    "target": "/performance"
+  },
+  {
+    "no": 104,
+    "old": "/performance/goals",
+    "decision": "FOLD",
+    "target": "/performance"
+  },
+  {
+    "no": 105,
+    "old": "/performance/reviews",
+    "decision": "FOLD",
+    "target": "/performance"
+  },
+  {
+    "no": 106,
+    "old": "/performance/feedback",
+    "decision": "FOLD",
+    "target": "/performance"
+  },
+  {
+    "no": 107,
+    "old": "/performance/calibration",
+    "decision": "FOLD",
+    "target": "/performance"
+  },
+  {
+    "no": 108,
+    "old": "/performance/results",
+    "decision": "FOLD",
+    "target": "/performance"
+  },
+  {
+    "no": 109,
+    "old": "/performance/appeals",
+    "decision": "FOLD",
+    "target": "/performance"
+  },
+  {
+    "no": 110,
+    "old": "/performance/reports",
+    "decision": "FOLD",
+    "target": "/performance"
+  },
+  {
+    "no": 111,
+    "old": "/recruitment/requests",
+    "decision": "KEEP",
+    "target": "/recruitment/requests"
+  },
+  {
+    "no": 112,
+    "old": "/recruitment/requests/approval",
+    "decision": "FOLD",
+    "target": "/recruitment/requests"
+  },
+  {
+    "no": 113,
+    "old": "/recruitment/requests/openings",
+    "decision": "FOLD",
+    "target": "/recruitment/requests"
+  },
+  {
+    "no": 114,
+    "old": "/recruitment/requests/board",
+    "decision": "FOLD",
+    "target": "/recruitment/requests"
+  },
+  {
+    "no": 115,
+    "old": "/recruitment/requests/budget",
+    "decision": "FOLD",
+    "target": "/recruitment/requests"
+  },
+  {
+    "no": 116,
+    "old": "/recruitment/requests/reports",
+    "decision": "FOLD",
+    "target": "/recruitment/requests"
+  },
+  {
+    "no": 117,
+    "old": "/recruitment/candidates",
+    "decision": "KEEP",
+    "target": "/recruitment/candidates"
+  },
+  {
+    "no": 118,
+    "old": "/recruitment/candidates/:id",
+    "decision": "KEEP",
+    "target": "/recruitment/candidates/:id"
+  },
+  {
+    "no": 119,
+    "old": "/recruitment/candidates/imports",
+    "decision": "FOLD",
+    "target": "/recruitment/candidates/:id"
+  },
+  {
+    "no": 120,
+    "old": "/recruitment/candidates/pipeline",
+    "decision": "FOLD",
+    "target": "/recruitment/candidates/:id"
+  },
+  {
+    "no": 121,
+    "old": "/recruitment/candidates/interviews",
+    "decision": "FOLD",
+    "target": "/recruitment/candidates/:id"
+  },
+  {
+    "no": 122,
+    "old": "/recruitment/candidates/evaluations",
+    "decision": "FOLD",
+    "target": "/recruitment/candidates/:id"
+  },
+  {
+    "no": 123,
+    "old": "/recruitment/candidates/offers",
+    "decision": "FOLD",
+    "target": "/recruitment/candidates/:id"
+  },
+  {
+    "no": 124,
+    "old": "/recruitment/candidates/communications",
+    "decision": "FOLD",
+    "target": "/recruitment/candidates/:id"
+  },
+  {
+    "no": 125,
+    "old": "/recruitment/candidates/talent-pool",
+    "decision": "FOLD",
+    "target": "/recruitment/candidates/:id"
+  },
+  {
+    "no": 126,
+    "old": "/recruitment/candidates/convert",
+    "decision": "FOLD",
+    "target": "/recruitment/candidates/:id"
+  },
+  {
+    "no": 127,
+    "old": "/training",
+    "decision": "KEEP",
+    "target": "/training"
+  },
+  {
+    "no": 128,
+    "old": "/training/courses",
+    "decision": "FOLD",
+    "target": "/training"
+  },
+  {
+    "no": 129,
+    "old": "/training/sessions",
+    "decision": "FOLD",
+    "target": "/training"
+  },
+  {
+    "no": 130,
+    "old": "/training/enrollments",
+    "decision": "FOLD",
+    "target": "/training"
+  },
+  {
+    "no": 131,
+    "old": "/training/checkins",
+    "decision": "FOLD",
+    "target": "/training"
+  },
+  {
+    "no": 132,
+    "old": "/training/exams",
+    "decision": "FOLD",
+    "target": "/training"
+  },
+  {
+    "no": 133,
+    "old": "/training/feedback",
+    "decision": "FOLD",
+    "target": "/training"
+  },
+  {
+    "no": 134,
+    "old": "/training/records",
+    "decision": "FOLD",
+    "target": "/training"
+  },
+  {
+    "no": 135,
+    "old": "/training/reports",
+    "decision": "FOLD",
+    "target": "/training"
+  },
+  {
+    "no": 136,
+    "old": "/notices",
+    "decision": "KEEP",
+    "target": "/notices"
+  },
+  {
+    "no": 137,
+    "old": "/notices/approval",
+    "decision": "FOLD",
+    "target": "/notices"
+  },
+  {
+    "no": 138,
+    "old": "/notices/audience",
+    "decision": "FOLD",
+    "target": "/notices"
+  },
+  {
+    "no": 139,
+    "old": "/notices/reads",
+    "decision": "FOLD",
+    "target": "/notices"
+  },
+  {
+    "no": 140,
+    "old": "/notices/templates",
+    "decision": "FOLD",
+    "target": "/notices"
+  },
+  {
+    "no": 154,
+    "old": "/notifications",
+    "decision": "KEEP",
+    "target": "/notifications"
+  },
+  {
+    "no": 142,
+    "old": "/system/users",
+    "decision": "KEEP",
+    "target": "/system/users"
+  },
+  {
+    "no": 143,
+    "old": "/system/roles",
+    "decision": "KEEP",
+    "target": "/system/roles"
+  },
+  {
+    "no": 144,
+    "old": "/system/menus",
+    "decision": "FOLD",
+    "target": "/system/pages"
+  },
+  {
+    "no": 145,
+    "old": "/system/permissions",
+    "decision": "FOLD",
+    "target": "/system/pages"
+  },
+  {
+    "no": 146,
+    "old": "/system/data-scopes",
+    "decision": "FOLD",
+    "target": "/system/roles"
+  },
+  {
+    "no": 147,
+    "old": "/system/field-policies",
+    "decision": "FOLD",
+    "target": "/system/roles"
+  },
+  {
+    "no": 148,
+    "old": "/workflow",
+    "decision": "KEEP",
+    "target": "/workflow"
+  },
+  {
+    "no": 149,
+    "old": "/workflow/cases/:id",
+    "decision": "KEEP",
+    "target": "/workflow/cases/:id"
+  },
+  {
+    "no": 152,
+    "old": "/system/calendars",
+    "decision": "FOLD",
+    "target": "/system/settings"
+  },
+  {
+    "no": 153,
+    "old": "/system/settings",
+    "decision": "KEEP",
+    "target": "/system/settings"
+  },
+  {
+    "no": 155,
+    "old": "/system/audit",
+    "decision": "KEEP",
+    "target": "/system/audit"
+  }
+]

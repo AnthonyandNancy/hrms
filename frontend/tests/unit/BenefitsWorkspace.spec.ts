@@ -3,7 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import ElementPlus from 'element-plus'
+import ElementPlus, { ElMessageBox } from 'element-plus'
 import { defineComponent } from 'vue'
 import { ApiError } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
@@ -134,6 +134,11 @@ const transaction = {
   employer_amount_cents: 160_000,
   total_amount_cents: 240_000,
   payroll_run_id: 77,
+  entry_type: 'RECORD',
+  reversal_of_id: null,
+  reversed_by_id: null,
+  reason: null,
+  source_hash: 'a'.repeat(64),
   status: 'RECORDED',
 }
 
@@ -396,6 +401,48 @@ describe('benefits workspace', () => {
     expect(transactions.find('[data-testid="benefit-transactions-panel"]').text()).toContain('工资批次 #77')
   })
 
+  it('renders P3-masked benefit amounts as restricted instead of zero or crashing', async () => {
+    const maskedEnrollment = {
+      id: 20,
+      plan_id: 10,
+      employment_id: 1001,
+      employee_rate: '0.080000',
+      employer_rate: '0.160000',
+      effective_from: '2026-01-01',
+      effective_to: null,
+      version: 1,
+    }
+    const maskedTransaction = {
+      id: 30,
+      enrollment_id: 20,
+      employment_id: 1001,
+      period: '2026-01',
+      payroll_run_id: null,
+      entry_type: 'RECORD',
+      reversal_of_id: null,
+      reversed_by_id: null,
+      reason: null,
+      source_hash: 'a'.repeat(64),
+      status: 'RECORDED',
+    }
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/benefits/plans') return Promise.resolve(listResponse([plan]))
+      if (path === '/v1/benefits/enrollments') return Promise.resolve(listResponse([maskedEnrollment]))
+      if (path === '/v1/benefits/transactions') return Promise.resolve(listResponse([maskedTransaction]))
+      return Promise.resolve(listResponse([]))
+    })
+
+    const enrollments = await mountBenefits('/benefits?tab=enrollments', ['benefit.read'])
+    await flushPromises()
+    expect(enrollments.find('[data-testid="benefit-enrollments-panel"]').text()).toContain('金额受限')
+    expect(enrollments.find('[data-testid="benefit-enrollments-panel"]').text()).not.toContain('¥0.00')
+
+    const transactions = await mountBenefits('/benefits?tab=transactions', ['benefit.read'])
+    await flushPromises()
+    expect(transactions.find('[data-testid="benefit-transactions-panel"]').text()).toContain('金额受限')
+    expect(transactions.find('[data-testid="benefit-transactions-panel"]').text()).not.toContain('¥0.00')
+  })
+
   it('marks enrollment counts truncated when the single read does not cover every enrolment', async () => {
     resource.get.mockImplementation((path: string) => {
       if (path === '/v1/benefits/plans') return Promise.resolve(listResponse([plan]))
@@ -461,6 +508,34 @@ describe('benefits workspace', () => {
       }),
       expect.objectContaining({ idempotencyKey: expect.stringContaining('benefit-enrollment') }),
     )
+  })
+
+  it('reverses a recorded contribution with a reason and the real command endpoint', async () => {
+    mockBenefitsAndStatutory()
+    const prompt = vi.spyOn(ElMessageBox, 'prompt').mockResolvedValue({
+      value: 'Synthetic duplicate contribution reversal.',
+    } as never)
+    resource.post.mockResolvedValue({
+      ...transaction,
+      id: 31,
+      entry_type: 'REVERSAL',
+      reversal_of_id: 30,
+      status: 'REVERSAL',
+    })
+
+    const wrapper = await mountBenefits('/benefits?tab=transactions', ['benefit.read', 'benefit.manage'])
+    await flushPromises()
+    await wrapper.get('[data-testid="benefit-transaction-reverse-30"]').trigger('click')
+    await flushPromises()
+
+    expect(prompt).toHaveBeenCalled()
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/benefits/transactions/30/reverse',
+      { reason: 'Synthetic duplicate contribution reversal.' },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.find('[data-testid="benefit-transaction-message"]').text()).toContain('冲销')
+    prompt.mockRestore()
   })
 
   it('translates a frozen payroll run conflict without exposing the server message', async () => {

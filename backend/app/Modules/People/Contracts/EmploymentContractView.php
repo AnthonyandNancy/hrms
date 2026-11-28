@@ -72,6 +72,10 @@ final readonly class EmploymentContractView
             return 'DRAFT';
         }
 
+        if ($status === 'PENDING_EFFECTIVE') {
+            return 'PENDING_EFFECTIVE';
+        }
+
         if ($status === 'TERMINATED') {
             return 'TERMINATED';
         }
@@ -108,6 +112,7 @@ final readonly class EmploymentContractView
     {
         return match ($displayStatus) {
             'DRAFT' => '草稿',
+            'PENDING_EFFECTIVE' => '待生效',
             'EFFECTIVE' => '生效中',
             'EXPIRING' => '即将到期',
             'EXPIRED' => '已到期',

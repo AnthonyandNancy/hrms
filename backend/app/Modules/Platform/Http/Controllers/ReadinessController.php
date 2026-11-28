@@ -23,6 +23,9 @@ final class ReadinessController
             'db' => $health->databaseHealthy(),
             'cache' => $health->cacheHealthy(),
             'storage' => $health->storageHealthy(),
+            'migrations' => $health->migrationsHealthy(),
+            'installation' => $health->installationHealthy(),
+            'administrator' => $health->administratorHealthy(),
         ];
         $ready = ! in_array(false, $checks, true);
 

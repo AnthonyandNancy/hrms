@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Time;
 
+use App\Modules\Time\Models\AttendanceDay;
 use App\Modules\Time\Models\BusinessTripRecord;
+use App\Modules\Time\Models\OvertimeRequest;
 use Tests\Support\Time\TimeHttpTestCase;
 use Tests\Support\Time\TimeTestFixtures;
 
@@ -59,6 +61,61 @@ final class TravelRequestTest extends TimeHttpTestCase
         ], ['Idempotency-Key' => 'travel-overlap'])
             ->assertConflict()
             ->assertJsonPath('data.reason', 'TRAVEL_OVERLAP');
+    }
+
+    public function test_travel_overlapping_approved_overtime_is_rejected(): void
+    {
+        $this->actAsHttp(TimeTestFixtures::actor(employmentId: 1, capabilities: [
+            'time.travel.read',
+            'time.travel.request',
+        ]));
+        OvertimeRequest::query()->create([
+            'employment_id' => 1,
+            'business_date' => '2026-12-06',
+            'declared_minutes' => 60,
+            'status' => OvertimeRequest::STATUS_APPROVED,
+            'reason' => 'Synthetic overtime conflict.',
+            'recorded_at' => $this->clock->now(),
+        ]);
+
+        $this->postJson('/v1/travel/requests', [
+            'from_date' => '2026-12-05',
+            'to_date' => '2026-12-07',
+            'destination' => 'Synthetic City',
+            'purpose' => 'Overlapping overtime.',
+        ], ['Idempotency-Key' => 'travel-overtime-conflict'])
+            ->assertConflict()
+            ->assertJsonPath('data.reason', 'TRAVEL_TIME_CONFLICT')
+            ->assertJsonPath('data.conflict_type', 'OVERTIME');
+    }
+
+    public function test_travel_overlapping_recorded_attendance_is_rejected(): void
+    {
+        $this->actAsHttp(TimeTestFixtures::actor(employmentId: 1, capabilities: [
+            'time.travel.read',
+            'time.travel.request',
+        ]));
+        AttendanceDay::query()->create([
+            'employment_id' => 1,
+            'business_date' => '2026-12-06',
+            'scheduled_minutes' => 480,
+            'worked_minutes' => 480,
+            'overtime_minutes' => 0,
+            'status' => 'NORMAL',
+            'rule_version' => 'SYNTHETIC',
+            'source_hash' => str_repeat('a', 64),
+            'calculated_at' => $this->clock->now(),
+        ]);
+
+        $this->postJson('/v1/travel/requests', [
+            'from_date' => '2026-12-05',
+            'to_date' => '2026-12-07',
+            'destination' => 'Synthetic City',
+            'purpose' => 'Overlapping attendance.',
+        ], ['Idempotency-Key' => 'travel-attendance-conflict'])
+            ->assertConflict()
+            ->assertJsonPath('data.reason', 'TRAVEL_TIME_CONFLICT')
+            ->assertJsonPath('data.conflict_type', 'ATTENDANCE');
     }
 
     public function test_cancellation_is_audited_and_cannot_cancel_other_employee(): void

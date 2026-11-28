@@ -172,18 +172,8 @@
       "owner": "Volume 3 Task 4"
     },
     {
-      "api": "POST /v1/employment-contracts/{id}/amendments",
-      "reason": "POST /v1/employment-contracts/{id}/amendments has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 8.",
-      "owner": "Volume 3 Task 8"
-    },
-    {
       "api": "POST /v1/employment-contracts/{id}/restore",
       "reason": "POST /v1/employment-contracts/{id}/restore has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 8.",
-      "owner": "Volume 3 Task 8"
-    },
-    {
-      "api": "POST /v1/employment-contracts/{id}/terminate",
-      "reason": "POST /v1/employment-contracts/{id}/terminate has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 8.",
       "owner": "Volume 3 Task 8"
     },
     {
@@ -264,46 +254,6 @@
     {
       "api": "POST /v1/payroll/adjustments",
       "reason": "POST /v1/payroll/adjustments has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 12.",
-      "owner": "Volume 3 Task 12"
-    },
-    {
-      "api": "POST /v1/payroll/runs/{id}/approve",
-      "reason": "POST /v1/payroll/runs/{id}/approve has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 12.",
-      "owner": "Volume 3 Task 12"
-    },
-    {
-      "api": "POST /v1/payroll/runs/{id}/calculate",
-      "reason": "POST /v1/payroll/runs/{id}/calculate has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 12.",
-      "owner": "Volume 3 Task 12"
-    },
-    {
-      "api": "POST /v1/payroll/runs/{id}/cancel",
-      "reason": "POST /v1/payroll/runs/{id}/cancel has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 12.",
-      "owner": "Volume 3 Task 12"
-    },
-    {
-      "api": "POST /v1/payroll/runs/{id}/close",
-      "reason": "POST /v1/payroll/runs/{id}/close has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 12.",
-      "owner": "Volume 3 Task 12"
-    },
-    {
-      "api": "POST /v1/payroll/runs/{id}/corrections",
-      "reason": "POST /v1/payroll/runs/{id}/corrections has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 12.",
-      "owner": "Volume 3 Task 12"
-    },
-    {
-      "api": "POST /v1/payroll/runs/{id}/lock-inputs",
-      "reason": "POST /v1/payroll/runs/{id}/lock-inputs has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 12.",
-      "owner": "Volume 3 Task 12"
-    },
-    {
-      "api": "POST /v1/payroll/runs/{id}/mark-paid",
-      "reason": "POST /v1/payroll/runs/{id}/mark-paid has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 12.",
-      "owner": "Volume 3 Task 12"
-    },
-    {
-      "api": "POST /v1/payroll/runs/{id}/reopen",
-      "reason": "POST /v1/payroll/runs/{id}/reopen has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 12.",
       "owner": "Volume 3 Task 12"
     },
     {

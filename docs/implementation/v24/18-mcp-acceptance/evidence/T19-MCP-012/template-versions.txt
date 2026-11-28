@@ -1,0 +1,4 @@
+mysql: [Warning] Using a password on the command line interface can be insecure.
+id	version	status	assignee_rule	effect_type
+9	1	PUBLISHED	{"type": "MANAGER_OF_SUBJECT"}	"workflow.noop"
+18	2	PUBLISHED	{"role": "APPROVER", "type": "CASE_MEMBER"}	"workflow.payroll.publish"

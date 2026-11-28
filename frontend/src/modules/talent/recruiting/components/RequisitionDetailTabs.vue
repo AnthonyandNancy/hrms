@@ -9,6 +9,7 @@ import RequisitionReportsPanel from './RequisitionReportsPanel.vue'
 import {
   OPENING_CHANNELS,
   listRequisitionOpenings,
+  openingStatusLabel,
   publishRequisitionOpening,
   type Requisition,
   type RequisitionOpening,
@@ -180,7 +181,7 @@ function channelLabel(value: string): string {
         <ul v-else class="requisition-detail__list">
           <li v-for="opening in openings" :key="opening.id" :data-testid="`opening-row-${opening.id}`">
             <strong>{{ channelLabel(opening.channel) }}</strong>
-            <span>{{ opening.status }}</span>
+            <span>{{ openingStatusLabel(opening.status) }}</span>
             <span>{{ opening.publishedAt === null ? '' : formatDateTimeInTimezone(opening.publishedAt) }}</span>
           </li>
         </ul>

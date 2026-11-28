@@ -1,0 +1,8 @@
+payslips	4
+payroll_ytd_ledger_entries	4
+notification_deliveries	2
+id	employment_id	gross_cents	deductions_cents	net_cents	published_at
+1	1	1800000	0	1800000	2026-11-28 12:47:30.000000
+2	2	900000	0	900000	2026-11-28 12:47:30.000000
+3	3	1100000	0	1100000	2026-11-28 12:47:30.000000
+4	4	1200000	0	1200000	2026-11-28 12:47:30.000000

@@ -1,0 +1,2 @@
+factoryhr/frontend:v24-t19g 39600c643d6b
+factoryhr/php-app:v24-t19g ec2700c82c2f

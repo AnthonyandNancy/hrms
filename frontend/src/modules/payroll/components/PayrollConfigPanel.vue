@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { formatBusinessDate, parseYuanToCents } from '@/utils/format'
 import MoneyText from '@/components/MoneyText.vue'
 import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
+import PayrollRuleVersionEditor from './PayrollRuleVersionEditor.vue'
 import { useSessionStore } from '@/stores/session'
 import {
   createEmployeeCompensation,
@@ -53,6 +54,7 @@ const itemDialogOpen = ref(false)
 const versionDialogOpen = ref(false)
 const retireDialogOpen = ref(false)
 const schemeDialogOpen = ref(false)
+const ruleEditorOpen = ref(false)
 const compensationDialogOpen = ref(false)
 const selectedItem = ref<PayrollItemRecord | null>(null)
 const itemSearch = ref('')
@@ -514,6 +516,9 @@ onMounted(() => {
         <el-button type="primary" :disabled="!canPrepare || loading" data-testid="payroll-scheme-create" @click="openCreateScheme">
           新建薪酬方案
         </el-button>
+        <el-button :disabled="!canPrepare || loading" data-testid="payroll-rule-open" @click="ruleEditorOpen = true">
+          规则版本
+        </el-button>
       </div>
       <DataTable
         :columns="schemeColumns"
@@ -644,6 +649,8 @@ onMounted(() => {
         <el-button type="danger" :loading="saving" data-testid="payroll-item-retire-confirm" @click="confirmRetire">确认停用</el-button>
       </template>
     </el-dialog>
+
+    <PayrollRuleVersionEditor v-if="canPrepare" v-model="ruleEditorOpen" />
 
     <el-dialog v-model="schemeDialogOpen" title="新建薪酬方案" width="520px" :close-on-click-modal="false" data-testid="payroll-scheme-dialog">
       <label class="payroll-config__field">方案编码

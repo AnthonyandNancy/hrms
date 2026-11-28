@@ -1,0 +1,132 @@
+- generic [ref=f3e3]:
+  - link "跳到主要内容" [ref=f3e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - complementary "主导航" [ref=f3e5]:
+    - generic [ref=f3e6]:
+      - generic [aria-hidden] [ref=f3e7]: 澄
+      - generic [ref=f3e8]:
+        - generic [ref=f3e9]: 澄明 HR
+        - generic [ref=f3e10]: Acme China Synthetic
+      - button "收起侧边栏" [expanded] [ref=f3e11] [cursor=pointer]
+    - navigation "V1.1 功能菜单" [ref=f3e15]:
+      - link "我的工作台" [ref=f3e17] [cursor=pointer]:
+        - /url: /workspace
+      - button "薪资管理" [ref=f3e23] [cursor=pointer]
+  - generic [ref=f3e33]:
+    - banner [ref=f3e34]:
+      - generic [ref=f3e35]:
+        - paragraph [ref=f3e36]: 澄明科技 · 人力资源
+        - generic [ref=f3e37]: payroll-run-detail
+      - link "查看未读公告" [ref=f3e38] [cursor=pointer]:
+        - /url: /notices
+      - button "打开账户菜单" [ref=f3e46] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f3e47]: T1
+        - generic [ref=f3e48]: t19.payroll
+    - main [ref=f3e53]:
+      - generic [ref=f3e54]:
+        - generic [ref=f3e55]:
+          - generic [ref=f3e56]:
+            - button "← 返回薪资工作台" [ref=f3e57] [cursor=pointer]
+            - paragraph [ref=f3e58]: 薪酬 · 工资批次详情
+            - heading "2026 年 1 月 工资批次" [level=1] [ref=f3e59]
+            - paragraph [ref=f3e60]: "常规批次 · 批次 #1 · 发放日 2026年1月31日"
+          - generic [ref=f3e61]:
+            - generic [ref=f3e62]: 草稿
+            - generic [ref=f3e63]: 草稿
+        - region "批次基本信息" [ref=f3e64]:
+          - generic [ref=f3e65]:
+            - term [ref=f3e66]: 期间
+            - definition [ref=f3e67]: 2026-01（2026 年 1 月）
+          - generic [ref=f3e68]:
+            - term [ref=f3e69]: 发放日
+            - definition [ref=f3e70]: 2026年1月31日
+          - generic [ref=f3e71]:
+            - term [ref=f3e72]: 人数
+            - definition [ref=f3e73]: 0 人
+          - generic [ref=f3e74]:
+            - term [ref=f3e75]: 应发合计
+            - definition [ref=f3e76]: 已按字段权限隐藏
+          - generic [ref=f3e77]:
+            - term [ref=f3e78]: 扣款合计
+            - definition [ref=f3e79]: 已按字段权限隐藏
+          - generic [ref=f3e80]:
+            - term [ref=f3e81]: 实发合计
+            - definition [ref=f3e82]: 已按字段权限隐藏
+          - generic [ref=f3e83]:
+            - term [ref=f3e84]: 输入锁定时间
+            - definition [ref=f3e85]: 2026-11-28 18:03
+          - generic [ref=f3e86]:
+            - term [ref=f3e87]: 快照版本
+            - definition [ref=f3e88]: v1
+        - generic [ref=f3e89]:
+          - generic [ref=f3e91]:
+            - heading "批次操作" [level=2] [ref=f3e92]
+            - paragraph [ref=f3e93]: 每个动作独立授权；按钮禁用时会说明原因，服务端仍会再次校验状态与职责分离。
+          - generic [ref=f3e94]:
+            - generic [ref=f3e95]:
+              - button "准备（锁定输入）" [disabled] [ref=f3e96]
+              - paragraph [ref=f3e97]: 当前状态或授权不允许此操作。
+            - generic [ref=f3e98]:
+              - button "试算" [disabled] [ref=f3e99]
+              - paragraph [ref=f3e100]: 当前状态或授权不允许此操作。
+            - generic [ref=f3e101]:
+              - button "提交复核" [disabled] [ref=f3e102]
+              - paragraph [ref=f3e103]: 当前状态或授权不允许此操作。
+            - generic [ref=f3e104]:
+              - button "批准" [disabled] [ref=f3e105]
+              - paragraph [ref=f3e106]: 当前状态或授权不允许此操作。
+            - generic [ref=f3e107]:
+              - button "发布" [disabled] [ref=f3e108]
+              - paragraph [ref=f3e109]: 当前状态或授权不允许此操作。
+            - generic [ref=f3e110]:
+              - button "标记发放" [disabled] [ref=f3e111]
+              - paragraph [ref=f3e112]: 当前状态或授权不允许此操作。
+            - generic [ref=f3e113]:
+              - button "关闭批次" [disabled] [ref=f3e114]
+              - paragraph [ref=f3e115]: 当前状态或授权不允许此操作。
+        - tablist "工资批次详情分区" [ref=f3e116]:
+          - tab "计薪输入" [selected] [ref=f3e117] [cursor=pointer]
+          - tab "复核" [ref=f3e118] [cursor=pointer]
+          - tab "发放登记" [ref=f3e119] [cursor=pointer]
+          - tab "工资条" [ref=f3e120] [cursor=pointer]
+          - tab "导出" [ref=f3e121] [cursor=pointer]
+        - region "计薪输入证据" [ref=f3e122]:
+          - generic [ref=f3e123]:
+            - generic [ref=f3e124]:
+              - heading "计薪输入证据" [level=2] [ref=f3e125]
+              - paragraph [ref=f3e126]: "来自 /v1/payroll/runs/{id}/inputs 的不可变输入快照；金额键只有具备工资条字段权限时才返回。"
+            - generic [ref=f3e127]: 0 条快照
+          - generic [ref=f3e128]:
+            - generic [aria-hidden] [ref=f3e129]: —
+            - generic [ref=f3e130]:
+              - heading "暂无计薪输入快照" [level=2] [ref=f3e131]
+              - paragraph [ref=f3e132]: 锁定输入并试算后，服务端会写入该批次的不可变输入证据。
+        - region "批次对账" [ref=f3e133]:
+          - generic [ref=f3e134]:
+            - generic [ref=f3e135]:
+              - heading "批次对账" [level=2] [ref=f3e136]
+              - paragraph [ref=f3e137]: 工资条、员工结果与批次合计必须一致；差异会逐条列出，不会自动忽略。
+            - generic [ref=f3e138]: 对账通过
+          - generic [ref=f3e139]:
+            - generic [ref=f3e140]:
+              - term [ref=f3e141]: 员工数
+              - definition [ref=f3e142]: "0"
+            - generic [ref=f3e143]:
+              - term [ref=f3e144]: 工资条数
+              - definition [ref=f3e145]: "0"
+            - generic [ref=f3e146]:
+              - term [ref=f3e147]: 应发合计
+              - definition [ref=f3e148]:
+                - generic "¥0.00" [ref=f3e149]
+            - generic [ref=f3e151]:
+              - term [ref=f3e152]: 实发合计
+              - definition [ref=f3e153]:
+                - generic "¥0.00" [ref=f3e154]
+            - generic [ref=f3e156]:
+              - term [ref=f3e157]: 单位成本
+              - definition [ref=f3e158]:
+                - generic "¥0.00" [ref=f3e159]
+    - contentinfo [ref=f3e161]:
+      - generic [ref=f3e162]: 澄明科技 HRMS
+      - generic [ref=f3e163]: 审计与导出操作会记录操作者、目的与时间
+      - generic [ref=f3e164]: 构建 aeccadc

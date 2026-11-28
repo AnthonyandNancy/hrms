@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import PageShell from '@/shared/ui/PageShell.vue'
 import { useSessionStore } from '@/stores/session'
@@ -17,6 +17,7 @@ import {
   listBenefitPlans,
   listBenefitTransactions,
   platformErrorCopy,
+  reverseBenefitTransaction,
   percentToRate,
   ratePercent,
   type BenefitEnrollment,
@@ -121,6 +122,7 @@ const transactionForm = reactive({
 })
 
 const transactionSaving = ref(false)
+const transactionSavingId = ref<number | null>(null)
 const transactionError = ref('')
 const transactionMessage = ref('')
 
@@ -149,26 +151,35 @@ const enrollmentRows = computed(() =>
   visibleEnrollmentRows.value.map((enrollment) => ({
     ...enrollment,
     planLabel: planLabel(enrollment.planId),
-    baseLabel: formatMoney(enrollment.baseAmountCents),
-    employeeRateLabel: ratePercent(enrollment.employeeRate),
-    employerRateLabel: ratePercent(enrollment.employerRate),
-    employeeContributionLabel: formatMoney(enrollment.employeeContributionCents),
-    employerContributionLabel: formatMoney(enrollment.employerContributionCents),
+    baseLabel: enrollment.baseAmountCents === undefined ? '金额受限' : formatMoney(enrollment.baseAmountCents),
+    employeeRateLabel: enrollment.employeeRate === undefined ? '费率受限' : ratePercent(enrollment.employeeRate),
+    employerRateLabel: enrollment.employerRate === undefined ? '费率受限' : ratePercent(enrollment.employerRate),
+    employeeContributionLabel: enrollment.employeeContributionCents === undefined ? '金额受限' : formatMoney(enrollment.employeeContributionCents),
+    employerContributionLabel: enrollment.employerContributionCents === undefined ? '金额受限' : formatMoney(enrollment.employerContributionCents),
     effectiveFromLabel: formatBusinessDate(enrollment.effectiveFrom),
     effectiveToLabel: enrollment.effectiveTo === null ? '长期有效' : formatBusinessDate(enrollment.effectiveTo),
     statusLabel: '有效版本',
   })),
 )
 
+const reversedRecordIds = computed(() => new Set(
+  transactions.value
+    .filter((transaction) => transaction.entryType === 'REVERSAL' && transaction.reversalOfId !== null)
+    .map((transaction) => transaction.reversalOfId as number),
+))
+
 const transactionRows = computed(() =>
   transactions.value.map((transaction) => ({
     ...transaction,
-    baseLabel: formatMoney(transaction.baseAmountCents),
-    employeeAmountLabel: formatMoney(transaction.employeeAmountCents),
-    employerAmountLabel: formatMoney(transaction.employerAmountCents),
-    totalAmountLabel: formatMoney(transaction.totalAmountCents),
+    baseLabel: transaction.baseAmountCents === undefined ? '金额受限' : formatMoney(transaction.baseAmountCents),
+    employeeAmountLabel: transaction.employeeAmountCents === undefined ? '金额受限' : formatMoney(transaction.employeeAmountCents),
+    employerAmountLabel: transaction.employerAmountCents === undefined ? '金额受限' : formatMoney(transaction.employerAmountCents),
+    totalAmountLabel: transaction.totalAmountCents === undefined ? '金额受限' : formatMoney(transaction.totalAmountCents),
     payrollLabel: transaction.payrollRunId === null ? '未关联工资批次' : `工资批次 #${transaction.payrollRunId}`,
-    statusLabel: '已登记',
+    statusLabel: transaction.entryType === 'REVERSAL' || reversedRecordIds.value.has(transaction.id)
+      ? '已冲销'
+      : '已登记',
+    reverseAvailable: transaction.entryType === 'RECORD' && !reversedRecordIds.value.has(transaction.id),
   })),
 )
 
@@ -243,6 +254,7 @@ const enrollmentColumns: DataTableColumn[] = [
   { key: 'effectiveFromLabel', label: '生效日', width: '125px' },
   { key: 'effectiveToLabel', label: '失效日', width: '125px' },
   { key: 'statusLabel', label: '状态', width: '90px' },
+  { key: 'actions', label: '操作', width: '110px', align: 'right' },
 ]
 
 const transactionColumns: DataTableColumn[] = [
@@ -254,6 +266,7 @@ const transactionColumns: DataTableColumn[] = [
   { key: 'totalAmountLabel', label: '合计', width: '130px', align: 'right' },
   { key: 'payrollLabel', label: '工资批次', width: '140px' },
   { key: 'statusLabel', label: '状态', width: '90px' },
+  { key: 'actions', label: '操作', width: '110px', align: 'right' },
 ]
 
 function planLabel(planId: number): string {
@@ -493,6 +506,47 @@ function resetTransactionForm(): void {
   transactionForm.payrollRunId = ''
 }
 
+function asBenefitTransactionRow(row: Record<string, unknown>): BenefitTransaction {
+  return row as unknown as BenefitTransaction
+}
+
+async function reverseTransactionRow(row: BenefitTransaction): Promise<void> {
+  if (!canManage.value || row.entryType !== 'RECORD' || reversedRecordIds.value.has(row.id)) {
+    return
+  }
+
+  transactionError.value = ''
+  transactionMessage.value = ''
+
+  try {
+    const result = await ElMessageBox.prompt(
+      '冲销会追加一条反向台账，不修改原记录。请输入至少 10 个字符的冲销原因。',
+      '冲销福利缴款',
+      {
+        confirmButtonText: '确认冲销',
+        cancelButtonText: '取消',
+        inputType: 'textarea',
+        inputPlaceholder: '例如：重复登记，原凭证已作废',
+        inputValidator: (value) => (value ?? '').trim().length >= 10 || '冲销原因至少需要 10 个字符。',
+      },
+    )
+    const reason = (result.value ?? '').trim()
+    if (reason.length < 10) return
+
+    transactionSavingId.value = row.id
+    await reverseBenefitTransaction(row.id, reason, nextIdempotencyKey('benefit-transaction-reverse'))
+    transactionMessage.value = '福利缴款已追加冲销记录，原记录保持不变。'
+    ElMessage.success(transactionMessage.value)
+    await loadTransactions()
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    transactionError.value = benefitManagerErrorCopy(error)
+    ElMessage.error(transactionError.value)
+  } finally {
+    transactionSavingId.value = null
+  }
+}
+
 async function submitTransaction(): Promise<void> {
   transactionError.value = ''
   transactionMessage.value = ''
@@ -544,6 +598,9 @@ function benefitManagerErrorCopy(error: unknown): string {
   if (reason === 'BENEFIT_ENROLLMENT_VERSION_ORDER') return '新参保版本的生效日必须晚于该员工在此方案下的最新版本。'
   if (reason === 'BENEFIT_PLAN_VERSION_ORDER') return '新方案版本的生效日必须晚于现有最新版本。'
   if (reason === 'BENEFIT_BASE_INVALID') return '参保基数必须是非负整数分金额。'
+  if (reason === 'BENEFIT_REVERSAL_DUPLICATE') return '该福利缴款已冲销，不能重复提交。'
+  if (reason === 'BENEFIT_REVERSAL_TARGET_INVALID') return '只有原始缴费记录可以冲销。'
+  if (reason === 'BENEFIT_PAYROLL_RUN_FROZEN') return '该缴费关联的工资批次已冻结，请通过工资更正处理。'
   return platformErrorCopy(error)
 }
 
@@ -992,7 +1049,21 @@ onMounted(() => {
                 row-key="id"
                 data-testid="benefit-transaction-table"
                 empty-title="当前没有月度缴费台账"
-              />
+              >
+                <template #cell-actions="{ row }">
+                  <el-button
+                    v-if="canManage && row.reverseAvailable"
+                    type="danger"
+                    link
+                    :loading="transactionSavingId === Number(row.id)"
+                    :data-testid="`benefit-transaction-reverse-${row.id}`"
+                    @click="reverseTransactionRow(asBenefitTransactionRow(row))"
+                  >
+                    冲销
+                  </el-button>
+                  <span v-else-if="row.entryType === 'REVERSAL'" class="muted small">冲销记录</span>
+                </template>
+              </DataTable>
               <p v-if="transactionMessage" class="inline-success" data-testid="benefit-transaction-message">{{ transactionMessage }}</p>
               <p v-if="transactionError" class="inline-error" role="alert" data-testid="benefit-transaction-error">{{ transactionError }}</p>
 

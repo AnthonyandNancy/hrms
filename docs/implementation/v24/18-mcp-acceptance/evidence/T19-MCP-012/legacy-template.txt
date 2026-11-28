@@ -1,0 +1,7 @@
+mysql: [Warning] Using a password on the command line interface can be insecure.
+*************************** 1. row ***************************
+             id: 9
+           code: payroll.approval
+        version: 1
+         status: PUBLISHED
+definition_json: {"nodes": [{"key": "start", "name": "Start", "type": "START", "sequence": 1}, {"key": "approval", "name": "Manager approval", "type": "APPROVAL", "sequence": 2, "sla_hours": 24, "assignee_rule": {"type": "MANAGER_OF_SUBJECT"}, "required_count": 1}, {"key": "end", "name": "End", "type": "END", "sequence": 3}], "effects": [{"type": "workflow.noop", "execution": "LOCAL", "aggregate_type": "case", "aggregate_id_field": "case_id"}]}

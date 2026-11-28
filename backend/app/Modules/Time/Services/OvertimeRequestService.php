@@ -6,11 +6,13 @@ namespace App\Modules\Time\Services;
 
 use App\Modules\Time\Contracts\EmploymentDirectory;
 use App\Modules\Time\Contracts\PayrollPeriodLockReader;
+use App\Modules\Time\Contracts\WorkflowCasePort;
 use App\Modules\Time\Models\AttendanceDay;
 use App\Modules\Time\Models\OvertimePolicyVersion;
 use App\Modules\Time\Models\OvertimeRecord;
 use App\Modules\Time\Models\OvertimeRequest;
 use App\Modules\Time\Models\OvertimeSettlement;
+use App\Modules\Time\Models\TimeoffLedgerEntry;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
@@ -50,6 +52,9 @@ final class OvertimeRequestService
         private readonly AuditRecorder $audit,
         private readonly EmploymentDirectory $employments,
         private readonly Container $container,
+        private readonly PayrollFreezeGuard $freezeGuard,
+        private readonly TimeoffLedgerService $timeoffLedger,
+        private readonly WorkflowCasePort $workflow,
     ) {}
 
     public function apply(
@@ -65,7 +70,11 @@ final class OvertimeRequestService
             ]);
         }
 
+        BusinessDate::parse($businessDate);
+
         return DB::transaction(function () use ($employmentId, $businessDate, $declaredMinutes, $reason, $actorUserId): OvertimeRequest {
+            $this->freezeGuard->lockAndAssertOpen(substr($businessDate, 0, 7));
+
             $duplicate = OvertimeRequest::query()
                 ->where('employment_id', $employmentId)
                 ->where('business_date', $businessDate)
@@ -79,6 +88,21 @@ final class OvertimeRequestService
                 ]);
             }
 
+            $caseId = $this->workflow->createCase(
+                requesterUserId: $actorUserId,
+                type: 'OVERTIME_REQUEST',
+                subjectType: 'employment',
+                subjectId: $employmentId,
+                payload: [
+                    'title' => 'Overtime request',
+                    'employment_id' => $employmentId,
+                    'business_date' => $businessDate,
+                    'declared_minutes' => $declaredMinutes,
+                    'reason' => $reason,
+                ],
+                businessDate: $businessDate,
+            );
+
             try {
                 /** @var OvertimeRequest $request */
                 $request = OvertimeRequest::query()->create([
@@ -86,9 +110,9 @@ final class OvertimeRequestService
                     'business_date' => $businessDate,
                     'declared_minutes' => $declaredMinutes,
                     'confirmed_minutes' => null,
-                    'status' => OvertimeRequest::STATUS_APPROVED,
+                    'status' => OvertimeRequest::STATUS_SUBMITTED,
                     'reason' => $reason,
-                    'case_id' => null,
+                    'case_id' => $caseId,
                     'overtime_record_id' => null,
                     'policy_version_id' => null,
                     'policy_snapshot_json' => null,
@@ -104,6 +128,7 @@ final class OvertimeRequestService
                 'employment_id' => $employmentId,
                 'business_date' => $businessDate,
                 'declared_minutes' => $declaredMinutes,
+                'case_id' => $caseId,
             ]);
 
             return $request;
@@ -115,6 +140,66 @@ final class OvertimeRequestService
      * record used by the settlement command. The policy snapshot is written in
      * the same transaction as the state transition and record.
      */
+    public function approve(int $overtimeRequestId, string $decision, string $comment, int $actorUserId): OvertimeRequest
+    {
+        $action = strtoupper($decision);
+        if (! in_array($action, ['APPROVE', 'REJECT'], true)) {
+            throw new ValidationException(['decision' => ['The decision must be APPROVE or REJECT.']]);
+        }
+
+        return DB::transaction(function () use ($overtimeRequestId, $action, $comment, $actorUserId): OvertimeRequest {
+            $request = OvertimeRequest::query()->whereKey($overtimeRequestId)->lockForUpdate()->first();
+            if ($request === null) {
+                throw new NotFoundOrForbiddenException;
+            }
+            if ((string) $request->status !== OvertimeRequest::STATUS_SUBMITTED || $request->case_id === null) {
+                throw new ConflictException('Only a submitted overtime request can be decided.', [
+                    'reason' => 'OVERTIME_REQUEST_NOT_SUBMITTED',
+                    'status' => (string) $request->status,
+                ]);
+            }
+
+            $case = $this->workflow->case((int) $request->case_id);
+            if ($case === null) {
+                throw new ConflictException('The overtime workflow case was not found.', [
+                    'reason' => 'OVERTIME_CASE_MISSING',
+                    'case_id' => (int) $request->case_id,
+                ]);
+            }
+            if (in_array($case->status, ['APPROVED', 'REJECTED', 'WITHDRAWN', 'CANCELLED'], true)) {
+                throw new ConflictException('The overtime workflow case has already been decided.', [
+                    'reason' => 'OVERTIME_CASE_ALREADY_DECIDED',
+                    'status' => $case->status,
+                ]);
+            }
+
+            $this->workflow->decide((int) $request->case_id, $action, $comment);
+            $decided = $this->workflow->case((int) $request->case_id);
+            $expected = $action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+            if ($decided === null || $decided->status !== $expected) {
+                throw new ConflictException('The overtime workflow decision did not reach the expected state.', [
+                    'reason' => 'OVERTIME_CASE_DECISION_FAILED',
+                    'case_id' => (int) $request->case_id,
+                ]);
+            }
+
+            $request->forceFill([
+                'status' => $action === 'APPROVE' ? OvertimeRequest::STATUS_APPROVED : OvertimeRequest::STATUS_REJECTED,
+                'updated_at' => $this->clock->now(),
+            ])->save();
+
+            $this->audit->record(
+                $actorUserId,
+                'time.overtime.decided',
+                'overtime_request',
+                (int) $request->id,
+                after: ['decision' => $action, 'case_id' => (int) $request->case_id, 'comment' => $comment],
+            );
+
+            return $request->refresh();
+        });
+    }
+
     public function confirm(
         int $overtimeRequestId,
         int $confirmedMinutes,
@@ -152,6 +237,7 @@ final class OvertimeRequestService
             }
 
             $businessDate = $request->business_date->format('Y-m-d');
+            $this->freezeGuard->lockAndAssertOpen(substr($businessDate, 0, 7));
             $policy = $this->effectiveFor($businessDate);
 
             if ($policy === null) {
@@ -590,46 +676,41 @@ final class OvertimeRequestService
      */
     public function timeoffBalances(int $employmentId, string $asOf): ProjectionResult
     {
+        $ledgerEntries = $this->timeoffLedger->entries($employmentId, $asOf);
+        $settlementIds = array_values(array_filter(
+            array_map(static fn (TimeoffLedgerEntry $entry): ?int => $entry->overtime_settlement_id, $ledgerEntries),
+            static fn (?int $id): bool => $id !== null,
+        ));
+        $settlements = OvertimeSettlement::query()
+            ->whereIn('id', $settlementIds === [] ? [-1] : $settlementIds)
+            ->get()
+            ->keyBy('id');
+        $recordIds = $settlements->pluck('overtime_record_id')->map(static fn (mixed $id): int => (int) $id)->all();
         $records = OvertimeRecord::query()
-            ->where('employment_id', $employmentId)
-            ->where('business_date', '<=', $asOf)
+            ->whereIn('id', $recordIds === [] ? [-1] : $recordIds)
             ->get()
             ->keyBy('id');
 
-        $settlements = OvertimeSettlement::query()
-            ->where('employment_id', $employmentId)
-            ->where('method', 'TIMEOFF')
-            ->whereIn('overtime_record_id', $records->keys()->all())
-            ->orderByDesc('recorded_at')
-            ->orderByDesc('id')
-            ->get();
-
-        /** @var list<array<string, mixed>> $items */
         $items = [];
-
-        /** @var OvertimeSettlement $settlement */
-        foreach ($settlements as $settlement) {
-            $record = $records->get((int) $settlement->overtime_record_id);
-
+        foreach ($ledgerEntries as $entry) {
+            $settlement = $entry->overtime_settlement_id !== null
+                ? $settlements->get((int) $entry->overtime_settlement_id)
+                : null;
+            $record = $settlement !== null ? $records->get((int) $settlement->overtime_record_id) : null;
             $items[] = [
-                'settlement_id' => (int) $settlement->id,
-                'overtime_record_id' => (int) $settlement->overtime_record_id,
-                'employment_id' => (int) $settlement->employment_id,
+                'ledger_entry_id' => (int) $entry->id,
+                'settlement_id' => $settlement !== null ? (int) $settlement->id : null,
+                'overtime_record_id' => $settlement !== null ? (int) $settlement->overtime_record_id : null,
+                'employment_id' => (int) $entry->employment_id,
                 'business_date' => $record instanceof OvertimeRecord ? $record->business_date->format('Y-m-d') : null,
-                'method' => (string) $settlement->method,
-                'entry_type' => 'EARNED',
-                'minutes' => (int) $settlement->minutes,
-                'reason' => (string) $settlement->reason,
+                'method' => 'TIMEOFF',
+                'entry_type' => $entry->entry_type === TimeoffLedgerEntry::TYPE_EARN ? 'EARNED' : $entry->entry_type,
+                'minutes' => (int) $entry->quantity_minutes,
+                'reason' => (string) $entry->reason,
                 'expires_at' => null,
-                'recorded_at' => $settlement->recorded_at?->toIso8601String(),
+                'recorded_at' => $entry->recorded_at?->toIso8601String(),
             ];
         }
-
-        $available = array_reduce(
-            $items,
-            static fn (int $total, array $item): int => $total + (int) $item['minutes'],
-            0,
-        );
 
         return new ProjectionResult(
             items: $items,
@@ -642,8 +723,8 @@ final class OvertimeRequestService
             partial: false,
             partialReason: null,
             drilldown: [
-                'resource' => 'overtime_settlements',
-                'filters' => ['employment_id' => $employmentId, 'method' => 'TIMEOFF'],
+                'resource' => 'timeoff_ledger_entries',
+                'filters' => ['employment_id' => $employmentId],
             ],
         );
     }

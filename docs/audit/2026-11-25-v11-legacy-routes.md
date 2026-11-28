@@ -28,6 +28,9 @@
 | 324 | `GET` | `/v1/auth/mfa/status` | `iam.session.manage` | `SELF` | kernel | — |
 | 325 | `POST` | `/v1/auth/mfa/totp/disable` | `iam.session.manage` | `SELF` | kernel | — |
 | 326 | `GET` | `/v1/auth/sessions` | `iam.session.manage` | `SELF` | kernel | — |
+| 402 | `GET` | `/v1/auth/csrf` | `iam.session.manage` | `SELF` | kernel | — |
+| 403 | `POST` | `/v1/employment-contracts/{id}/activate` | `people.contract.manage` | `—` | kernel | — |
+| 404 | `GET` | `/v1/employments/{employmentId}/contract-versions` | `people.contract.read` | `—` | kernel | — |
 | 327 | `DELETE` | `/v1/auth/sessions/{id}` | `iam.session.manage` | `SELF` | kernel | — |
 | 13 | `POST` | `/v1/auth/webauthn/assert/options` | `iam.session.manage` | `SELF` | legacy | E3 |
 | 14 | `POST` | `/v1/auth/webauthn/register/options` | `iam.session.manage` | `SELF` | legacy | E3 |
@@ -407,3 +410,17 @@
 | 361 | `PATCH` | `/v1/training/sessions/{id}` | `training.session.manage` | `—` | kernel | — |
 | 362 | `GET` | `/v1/travel/reports/summary` | `time.travel.read` | `—` | kernel | — |
 | 363 | `POST` | `/v1/travel/requests/{id}/change` | `time.travel.request` | `—` | kernel | — |
+| 364 | `POST` | `/v1/payroll/runs/{id}/members` | `payroll.run.prepare` | `PAYROLL_RUN` | kernel | — |
+| 365 | `POST` | `/v1/benefits/transactions/{id}/reverse` | `benefit.manage` | `COMPANY` | kernel | — |
+| 366 | `GET` | `/v1/performance/bonus-mappings` | `performance.report.read` | `—` | kernel | — |
+| 367 | `POST` | `/v1/performance/bonus-mappings` | `performance.result.publish` | `COMPANY` | kernel | — |
+| 368 | `POST` | `/v1/performance/bonus-mappings/{id}/approve` | `performance.result.publish` | `COMPANY` | kernel | — |
+| 369 | `POST` | `/v1/training/exams/{id}/attempts` | `training.exam.manage` | `COMPANY` | kernel | — |
+| 370 | `GET` | `/v1/payroll/rules` | `payroll.run.read` | `COMPANY` | kernel | — |
+| 371 | `POST` | `/v1/payroll/scheme-items/{id}/rules` | `payroll.run.prepare` | `COMPANY` | kernel | — |
+| 372 | `POST` | `/v1/payroll/rules/{id}/publish` | `payroll.run.prepare` | `COMPANY` | kernel | — |
+| 373 | `POST` | `/v1/payroll/rules/{id}/retire` | `payroll.run.prepare` | `COMPANY` | kernel | — |
+
+| 374 | `POST` | `/v1/payroll/runs/{id}/corrections/void` | `payroll.run.correct` | `PAYROLL_RUN` | kernel | — |
+
+| 375 | `POST` | `/v1/time/overtime/requests/{id}/approve` | `time.overtime.manage` | `MANAGED` | kernel | — |

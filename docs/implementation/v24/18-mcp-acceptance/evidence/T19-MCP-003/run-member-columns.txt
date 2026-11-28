@@ -1,0 +1,9 @@
+id	bigint unsigned	NO	PRI	NULL	auto_increment
+run_id	bigint unsigned	NO	MUL	NULL	
+user_id	bigint unsigned	NO	MUL	NULL	
+member_role	varchar(24)	NO		NULL	
+assigned_by	bigint unsigned	NO		NULL	
+reason	varchar(500)	NO		NULL	
+valid_from	datetime(6)	NO		NULL	
+created_at	timestamp(6)	YES		NULL	
+updated_at	timestamp(6)	YES		NULL	

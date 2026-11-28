@@ -1,0 +1,10 @@
+33. [GET] http://127.0.0.1:5190/v1/me => [401] Unauthorized
+39. [POST] http://127.0.0.1:5190/v1/auth/login => [200] OK
+40. [GET] http://127.0.0.1:5190/v1/me => [200] OK
+41. [GET] http://127.0.0.1:5190/v1/me/capabilities => [200] OK
+42. [GET] http://127.0.0.1:5190/v1/me/permissions => [200] OK
+56. [GET] http://127.0.0.1:5190/v1/recruitment/requisitions?page=1&page_size=50 => [200] OK
+57. [GET] http://127.0.0.1:5190/v1/reporting/dashboard => [200] OK
+58. [GET] http://127.0.0.1:5190/v1/org-units/tree => [200] OK
+
+Note: 21 static requests not shown, run with "static" option to see them.

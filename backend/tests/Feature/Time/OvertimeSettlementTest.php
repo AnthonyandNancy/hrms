@@ -6,6 +6,10 @@ namespace Tests\Feature\Time;
 
 use App\Modules\Time\Contracts\PayrollPeriodLockReader;
 use App\Modules\Time\Models\OvertimeRecord;
+use App\Modules\Time\Models\OvertimeRequest;
+use App\Modules\Time\Models\OvertimeSettlement;
+use App\Modules\Time\Models\TimeoffLedgerEntry;
+use LogicException;
 use Tests\Support\Time\TimeHttpTestCase;
 use Tests\Support\Time\TimeTestFixtures;
 
@@ -74,6 +78,63 @@ final class OvertimeSettlementTest extends TimeHttpTestCase
 
         $this->assertSame($first->json('data.settlement_id'), $second->json('data.settlement_id'));
         $this->assertDatabaseCount('overtime_settlements', 1);
+    }
+
+    public function test_timeoff_settlement_writes_one_append_only_ledger_entry(): void
+    {
+        $this->actAsHttp(TimeTestFixtures::actor(employmentId: 1, capabilities: ['time.overtime.read', 'time.overtime.settle']));
+        $record = OvertimeRecord::query()->create([
+            'employment_id' => 1,
+            'business_date' => '2026-11-22',
+            'minutes' => 45,
+            'status' => 'APPROVED',
+            'created_at' => $this->clock->now(),
+        ]);
+
+        $response = $this->postJson("/v1/overtime/records/{$record->id}/settlements", [
+            'method' => 'TIMEOFF',
+            'reason' => 'Synthetic timeoff ledger entry.',
+        ], ['Idempotency-Key' => 'ot-ledger-timeoff'])->assertCreated();
+
+        $settlement = OvertimeSettlement::query()->findOrFail((int) $response->json('data.settlement_id'));
+        $entry = TimeoffLedgerEntry::query()->where('overtime_settlement_id', $settlement->id)->firstOrFail();
+        $this->assertSame(TimeoffLedgerEntry::TYPE_EARN, $entry->entry_type);
+        $this->assertSame(45, (int) $entry->quantity_minutes);
+        $this->assertSame('2026-11-22', $entry->effective_on->format('Y-m-d'));
+        $this->assertSame((int) $entry->id, (int) $settlement->leave_ledger_entry_id);
+
+        $this->expectException(LogicException::class);
+        $entry->forceFill(['quantity_minutes' => 0])->save();
+    }
+
+    public function test_confirmed_policy_flags_reject_a_disallowed_settlement_method(): void
+    {
+        $this->actAsHttp(TimeTestFixtures::actor(employmentId: 1, capabilities: ['time.overtime.read', 'time.overtime.settle']));
+        $record = OvertimeRecord::query()->create([
+            'employment_id' => 1,
+            'business_date' => '2026-11-29',
+            'minutes' => 60,
+            'status' => 'APPROVED',
+            'created_at' => $this->clock->now(),
+        ]);
+        OvertimeRequest::query()->create([
+            'employment_id' => 1,
+            'business_date' => '2026-11-29',
+            'declared_minutes' => 60,
+            'confirmed_minutes' => 60,
+            'status' => OvertimeRequest::STATUS_CONFIRMED,
+            'reason' => 'Synthetic policy flag request.',
+            'overtime_record_id' => (int) $record->id,
+            'policy_snapshot_json' => ['allow_pay' => true, 'allow_timeoff' => false],
+            'recorded_at' => $this->clock->now(),
+        ]);
+
+        $this->postJson("/v1/overtime/records/{$record->id}/settlements", [
+            'method' => 'TIMEOFF',
+            'reason' => 'Synthetic disallowed timeoff.',
+        ], ['Idempotency-Key' => 'ot-policy-disallowed'])
+            ->assertConflict()
+            ->assertJsonPath('data.reason', 'OVERTIME_METHOD_NOT_ALLOWED');
     }
 
     public function test_unknown_overtime_record_cannot_be_settled(): void

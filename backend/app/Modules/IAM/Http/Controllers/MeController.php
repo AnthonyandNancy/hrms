@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\IAM\Http\Controllers;
 
 use App\Modules\IAM\Auth\AuthenticationContext;
+use App\Modules\IAM\Authorization\PageActionCatalog;
 use App\Modules\IAM\Authorization\PermissionProjection;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Models\UserRole;
@@ -21,6 +22,7 @@ final class MeController
         private readonly AuthenticationContext $context,
         private readonly Clock $clock,
         private readonly PermissionProjection $permissions,
+        private readonly PageActionCatalog $actions,
     ) {}
 
     public function show(Request $request): JsonResponse
@@ -76,11 +78,16 @@ final class MeController
             $principal->userId(),
             $principal->authVersion(),
         );
+        $visiblePageCodes = array_map(
+            static fn (array $page): string => (string) $page['page_code'],
+            $projection['pages'],
+        );
 
         return ApiResponse::ok([
             'menus' => (new \App\Modules\IAM\Authorization\PermissionResourceCatalog)
                 ->menusForCapabilities($projection['action_codes']),
             'actions' => $projection['action_codes'],
+            'action_definitions' => $this->actions->forPageCodes($visiblePageCodes),
             'field_capabilities' => $projection['field_capabilities'],
             'scope_labels' => $projection['scope_labels'],
             'auth_version' => $principal->authVersion(),

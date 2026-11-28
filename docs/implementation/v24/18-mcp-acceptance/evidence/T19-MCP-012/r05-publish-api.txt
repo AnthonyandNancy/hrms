@@ -1,0 +1,3 @@
+/v1/payroll/runs/1:200
+/v1/payroll/runs/1/payslips:404
+/v1/payroll/payslips:403

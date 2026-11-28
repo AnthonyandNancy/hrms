@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\IAM\Console\Commands;
 
+use App\Modules\IAM\Authorization\CapabilityCatalog;
 use App\Modules\IAM\Models\MfaFactor;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Services\MfaService;
 use App\Modules\IAM\Services\PasswordHasher;
 use App\Modules\Organization\Contracts\OrganizationBootstrap;
+use App\Modules\Platform\Contracts\InstallationStateStore;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\Clock;
 use Illuminate\Console\Command;
@@ -46,12 +48,14 @@ final class InstallCommand extends Command
         PasswordHasher $passwords,
         Clock $clock,
         AuditRecorder $audit,
+        CapabilityCatalog $catalog,
+        InstallationStateStore $installation,
     ): int {
         $report = new InstallReport;
 
         $code = trim((string) $this->option('company-code'));
         $name = trim((string) $this->option('company-name'));
-        $username = trim((string) $this->option('admin-username'));
+        $username = mb_strtolower(trim((string) $this->option('admin-username')));
         $email = trim((string) $this->option('admin-email'));
         $password = (string) ($this->option('admin-password') ?: config('iam.install.admin_password', ''));
 
@@ -71,20 +75,21 @@ final class InstallCommand extends Command
             return self::FAILURE;
         }
 
-        // Reference data is not optional in a production birth path: an ANNUAL
-        // leave type without an entitlement/legal basis is not a usable
-        // baseline, and silently inventing either is a legal decision.
-        foreach (['--annual-days' => (string) $this->option('annual-days'), '--legal-basis' => (string) $this->option('legal-basis')] as $option => $value) {
-            if (trim($value) === '') {
-                $this->error("{$option} is required for the reference baseline. Nothing was created.");
+        $currentInstallation = $installation->current();
 
-                return self::FAILURE;
-            }
+        if ($currentInstallation !== null && $currentInstallation->adminUsername !== $username) {
+            $this->error('This company instance is already bound to another administrator. Use that account to resume or repair installation.');
+
+            return self::FAILURE;
         }
 
         $admin = null;
+        $installationStarted = false;
 
         try {
+            $installation->begin($username, (string) config('app.version', '1.0.0'));
+            $installationStarted = true;
+
             $bootstrap = app(OrganizationBootstrap::class)->ensureCompanyWithRoot(
                 $code,
                 $name,
@@ -188,7 +193,21 @@ final class InstallCommand extends Command
                 aggregateId: (string) $bootstrap['company_profile_id'],
                 metadata: ['steps' => array_map(static fn (InstallStep $step): array => ['name' => $step->name, 'status' => $step->status, 'detail' => $step->detail], $report->steps())],
             );
+
+            $catalogHash = hash('sha256', implode("\n", $catalog->codes()));
+            $installation->complete((int) $admin->id, $catalogHash);
+            $report->record('installation_state', InstallStep::STATUS_CREATED, 'status=COMPLETED');
         } catch (\Throwable $exception) {
+            report($exception);
+
+            if ($installationStarted) {
+                try {
+                    $installation->fail($exception->getMessage());
+                } catch (\Throwable) {
+                    // Preserve the original installation error.
+                }
+            }
+
             $this->error('Install failed: '.$exception->getMessage());
             $this->printReport($report);
             $this->error('Install did not complete. Existing rows are preserved; fix the cause and rerun.');

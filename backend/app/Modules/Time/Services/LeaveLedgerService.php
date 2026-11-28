@@ -11,6 +11,7 @@ use App\Modules\Time\Models\LeaveType;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Time\BusinessDate;
 use App\Shared\Time\Clock;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -25,6 +26,7 @@ final class LeaveLedgerService
     public function __construct(
         private readonly Clock $clock,
         private readonly LeaveBalanceService $balances,
+        private readonly PayrollFreezeGuard $freezeGuard,
     ) {}
 
     public function grant(
@@ -275,7 +277,9 @@ final class LeaveLedgerService
             throw LeaveBalanceException::invalidQuantity($account, $minutes);
         }
 
-        return DB::transaction(function () use ($employmentId, $leaveTypeId, $account, $minutes, $businessDate, $effectiveOn, $sourceType, $sourceId, $caseId, $reason, $allowNegative): LeaveLedgerEntry {
+        $periods = $this->factPeriods($businessDate, $effectiveOn);
+
+        return $this->freezeGuard->withOpenPeriods($periods, function () use ($employmentId, $leaveTypeId, $account, $minutes, $businessDate, $effectiveOn, $sourceType, $sourceId, $caseId, $reason, $allowNegative): LeaveLedgerEntry {
             $existing = LeaveLedgerEntry::query()
                 ->where('employment_id', $employmentId)
                 ->where('leave_type_id', $leaveTypeId)
@@ -385,6 +389,22 @@ final class LeaveLedgerService
             $effectiveOn,
             allowNegative: true,
         );
+    }
+
+    /**
+     * A closed Time month is immutable for every ledger account, including
+     * GRANT/RESERVE: the closed fact version is the payroll boundary and no
+     * later ledger row may silently reinterpret it.
+     */
+    /**
+     * @return list<string>
+     */
+    private function factPeriods(string $businessDate, string $effectiveOn): array
+    {
+        return array_values(array_unique([
+            CarbonImmutable::parse($businessDate, 'UTC')->format('Y-m'),
+            CarbonImmutable::parse($effectiveOn, 'UTC')->format('Y-m'),
+        ]));
     }
 
     private function lockAccount(int $employmentId, int $leaveTypeId): LeaveAccount

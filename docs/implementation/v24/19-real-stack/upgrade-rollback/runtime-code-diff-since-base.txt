@@ -1,0 +1,4 @@
+M	backend/app/Modules/IAM/Auth/CapabilityAuthorizer.php
+M	backend/app/Modules/IAM/Http/Controllers/UserAdminController.php
+M	frontend/src/modules/platform/components/RoleScopeEditor.vue
+M	frontend/src/modules/platform/pages/SystemRolesPage.vue

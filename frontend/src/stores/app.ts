@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import type { DashboardData, Notice } from '@/api/contracts'
 import { getApi } from '@/api'
+import { useSessionStore } from '@/stores/session'
 
 /**
  * Shell-level data used by navigation badges and the session-expiry banner.
@@ -29,10 +30,13 @@ export const useAppStore = defineStore('app', () => {
 
   async function loadShellCounters(): Promise<void> {
     const api = getApi()
+    const session = useSessionStore()
     try {
       const [dashboard, unread] = await Promise.all([
         api.dashboard.getDashboard(),
-        api.notices.listNotices('unread'),
+        session.can('engagement.notice.read')
+          ? api.notices.listNotices('unread')
+          : Promise.resolve([]),
       ])
       dashboardCache.value = dashboard
       notices.value = unread

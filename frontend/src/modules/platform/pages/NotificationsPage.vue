@@ -57,7 +57,7 @@ const actionMessage = ref('')
 const openedNotice = ref<VisibleNotice | null>(null)
 const openingNoticeId = ref<number | null>(null)
 
-const unreadCount = computed(() => notifications.value.filter((item) => !item.read).length)
+const unreadCount = computed(() => notifications.value.filter((item) => item.valid && !item.read).length)
 
 const typeOptions = computed(() => {
   const seen = new Map<string, { type: string; label: string; count: number }>()
@@ -82,12 +82,14 @@ const rows = computed(() => {
   return filtered.map((item) => ({
     ...item,
     label: notificationTypeLabel(item.type),
-    summary: notificationSummary(item),
-    link: notificationLink(item),
-    noticeId: noticeIdOf(item),
-    isNotice: item.type === 'NOTICE_PUBLISHED' || item.type === 'NOTICE_REMINDER',
-    statusLabel: item.read ? '已读' : '未读',
-    statusTone: item.read ? 'plain-chip--muted' : 'plain-chip--warning',
+    summary: item.valid
+      ? notificationSummary(item)
+      : (item.invalidReason ?? '该通知已失效，原内容不可查看。'),
+    link: item.valid ? notificationLink(item) : null,
+    noticeId: item.valid ? noticeIdOf(item) : null,
+    isNotice: item.valid && (item.type === 'NOTICE_PUBLISHED' || item.type === 'NOTICE_REMINDER'),
+    statusLabel: item.valid ? (item.read ? '已读' : '未读') : '已失效',
+    statusTone: item.valid ? (item.read ? 'plain-chip--muted' : 'plain-chip--warning') : 'plain-chip--muted',
     time: formatDateTimeInTimezone(item.createdAt),
   }))
 })
@@ -118,6 +120,7 @@ function notificationSummary(item: InboxNotification): string {
   if (item.type === 'CASE_APPROVED') return '你发起的审批已通过，请查看业务结果。'
   if (item.type === 'CASE_REJECTED') return '你发起的审批被驳回，请查看审批意见。'
   if (item.type === 'CASE_ASSIGNED') return '有审批案例指派给你。'
+  if (item.type === 'PAYSLIP_PUBLISHED') return '工资条已发布，可前往工资条页面查看详情。'
   return '有新的业务通知，请查看关联对象。'
 }
 
@@ -217,7 +220,7 @@ async function markRead(item: InboxNotification): Promise<void> {
 }
 
 async function markAllRead(): Promise<void> {
-  const pending = notifications.value.filter((item) => !item.read)
+  const pending = notifications.value.filter((item) => item.valid && !item.read)
   if (pending.length === 0 || markingAll.value) return
   markingAll.value = true
   actionError.value = ''
@@ -411,11 +414,12 @@ onMounted(() => {
             <div class="notification-row__main">
               <div class="notification-row__heading">
                 <strong>{{ item.label }}</strong>
-                <span v-if="!item.read" class="plain-chip plain-chip--warning" :data-testid="`notification-unread-${item.id}`">未读</span>
+                <span v-if="!item.valid" class="plain-chip plain-chip--muted" :data-testid="`notification-invalid-${item.id}`">已失效</span>
+                <span v-else-if="!item.read" class="plain-chip plain-chip--warning" :data-testid="`notification-unread-${item.id}`">未读</span>
                 <span v-else class="plain-chip plain-chip--muted">{{ item.statusLabel }}</span>
                 <time :datetime="item.createdAt ?? undefined">{{ item.time }}</time>
               </div>
-              <p class="notification-row__summary">{{ item.summary }}</p>
+              <p class="notification-row__summary" :data-testid="`notification-summary-${item.id}`">{{ item.summary }}</p>
             </div>
             <div class="notification-row__actions">
               <button
@@ -431,7 +435,7 @@ onMounted(() => {
               </button>
               <RouterLink v-else-if="item.link !== null" :to="item.link" class="notification-link">查看关联对象</RouterLink>
               <el-button
-                v-if="!item.read"
+                v-if="item.valid && !item.read"
                 text
                 size="small"
                 :loading="marking === item.id"

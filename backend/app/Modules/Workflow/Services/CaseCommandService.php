@@ -8,9 +8,12 @@ use App\Modules\Workflow\Contracts\CaseCommandPort;
 use App\Modules\Workflow\Contracts\WorkflowPrincipal;
 use App\Modules\Workflow\Enums\DecisionAction;
 use App\Modules\Workflow\Models\CaseModel;
+use App\Modules\Workflow\Models\Effect;
 use App\Modules\Workflow\Models\WorkflowTemplate;
+use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundException;
 use App\Shared\Exceptions\ValidationException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Workflow-owned implementation of the business-module case command port. The
@@ -98,13 +101,22 @@ final class CaseCommandService implements CaseCommandPort
         ];
     }
 
-    public function withdraw(WorkflowPrincipal $principal, int $caseId, string $reason): array
-    {
+    public function withdraw(
+        WorkflowPrincipal $principal,
+        int $caseId,
+        string $reason,
+        ?string $authorizingCapability = null,
+    ): array {
         $case = CaseModel::query()
             ->whereKey($caseId)
             ->first();
 
-        if ($case === null || (int) $case->requester_user_id !== $principal->userId) {
+        $authorized = $case !== null && (
+            (int) $case->requester_user_id === $principal->userId
+            || ($authorizingCapability !== null && $principal->can($authorizingCapability))
+        );
+
+        if (! $authorized) {
             throw NotFoundException::forResource();
         }
 
@@ -112,9 +124,77 @@ final class CaseCommandService implements CaseCommandPort
             return $this->summary($case);
         }
 
-        $withdrawn = $this->cases->withdraw($principal, $case, $reason);
+        $withdrawn = $this->cases->withdraw($principal, $case, $reason, $authorizingCapability);
 
         return $this->summary($withdrawn);
+    }
+
+    /**
+     * @return array{case_id: int, effect_status: string, reversed: int}
+     */
+    public function reverseEffect(
+        WorkflowPrincipal $principal,
+        int $caseId,
+        string $reason,
+        string $effectiveOn,
+        ?string $authorizingCapability = null,
+    ): array {
+        return DB::transaction(function () use ($principal, $caseId, $reason, $effectiveOn, $authorizingCapability): array {
+            $case = CaseModel::query()
+                ->whereKey($caseId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($case === null) {
+                throw NotFoundException::forResource();
+            }
+
+            if ((int) $case->requester_user_id !== $principal->userId
+                && ! $principal->can('workflow.case.admin')
+                && ($authorizingCapability === null || ! $principal->can($authorizingCapability))) {
+                throw NotFoundException::forResource();
+            }
+
+            $effects = Effect::query()
+                ->where('case_id', $caseId)
+                ->whereNull('reversal_of_id')
+                ->where('status', \App\Modules\Workflow\Enums\EffectStatus::APPLIED->value)
+                ->orderBy('id')
+                ->get();
+
+            if ($effects->isEmpty()) {
+                return [
+                    'case_id' => $caseId,
+                    'effect_status' => $case->effect_status->value,
+                    'reversed' => 0,
+                ];
+            }
+
+            $reversed = 0;
+
+            foreach ($effects as $effect) {
+                $result = app(EffectExecutor::class)->reverse((int) $effect->id, $reason, $effectiveOn, $principal->userId);
+
+                if ($result->status !== \App\Modules\Workflow\Enums\EffectStatus::REVERSED) {
+                    throw new ConflictException('The Workflow effect reversal failed and remains retryable.', [
+                        'reason' => 'EFFECT_REVERSAL_FAILED',
+                        'effect_id' => (int) $effect->id,
+                        'effect_type' => (string) $effect->effect_type,
+                        'effect_status' => $result->status->value,
+                    ]);
+                }
+
+                $reversed++;
+            }
+
+            $case->refresh();
+
+            return [
+                'case_id' => $caseId,
+                'effect_status' => $case->effect_status->value,
+                'reversed' => $reversed,
+            ];
+        });
     }
 
     public function find(int $caseId): ?array

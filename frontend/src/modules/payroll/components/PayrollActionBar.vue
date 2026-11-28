@@ -4,7 +4,6 @@ import { payrollActionLabel, type PayrollAction, type PayrollRunStatus } from '.
 
 type ActionRule = {
   action: PayrollAction
-  capability: string
   allowed: (status: PayrollRunStatus) => boolean
   reason: (status: PayrollRunStatus) => string
   tone: 'primary' | 'default' | 'danger'
@@ -15,7 +14,6 @@ type ActionRule = {
 const RULES: ActionRule[] = [
   {
     action: 'lock-inputs',
-    capability: 'payroll.run.prepare',
     allowed: (status) => status === 'DRAFT',
     reason: (status) => (status === 'DRAFT' ? '' : '仅草稿批次可以锁定输入。'),
     tone: 'primary',
@@ -24,16 +22,14 @@ const RULES: ActionRule[] = [
   },
   {
     action: 'calculate',
-    capability: 'payroll.run.prepare',
     allowed: (status) => status === 'INPUT_LOCKED' || status === 'CALCULATED',
-    reason: () => '仅输入已锁定的批次可以试算。',
+    reason: () => '仅输入已锁定的批次可以试算；有阻断的批次需先重开修正输入。',
     tone: 'primary',
     confirmTitle: '试算工资',
     confirmBody: (period) => `将为 ${period} 的全部在册员工试算工资，金额写入整数分。确认试算？`,
   },
   {
     action: 'review',
-    capability: 'payroll.run.review',
     allowed: (status) => status === 'CALCULATED',
     reason: () => '仅已试算的批次可以提交复核。',
     tone: 'default',
@@ -42,7 +38,6 @@ const RULES: ActionRule[] = [
   },
   {
     action: 'approve',
-    capability: 'payroll.run.approve',
     allowed: (status) => status === 'REVIEWED',
     reason: () => '仅已复核的批次可以批准。',
     tone: 'primary',
@@ -51,7 +46,6 @@ const RULES: ActionRule[] = [
   },
   {
     action: 'publish',
-    capability: 'payroll.run.publish',
     allowed: (status) => status === 'APPROVED',
     reason: () => '仅已批准的批次可以发布。',
     tone: 'primary',
@@ -60,7 +54,6 @@ const RULES: ActionRule[] = [
   },
   {
     action: 'mark-paid',
-    capability: 'payroll.run.close',
     allowed: (status) => status === 'PUBLISHED',
     reason: () => '仅已发布的批次可以标记发放。',
     tone: 'default',
@@ -69,7 +62,6 @@ const RULES: ActionRule[] = [
   },
   {
     action: 'close',
-    capability: 'payroll.run.close',
     allowed: (status) => status === 'PAID',
     reason: () => '仅已发放的批次可以关闭。',
     tone: 'default',
@@ -81,10 +73,22 @@ const RULES: ActionRule[] = [
 const props = defineProps<{
   status: PayrollRunStatus
   period: string
-  capabilities: string[]
+  allowedActions?: string[]
   submitting?: PayrollAction | null
   readOnly?: boolean
 }>()
+
+const OBJECT_ACTION_KEYS: Record<PayrollAction, string> = {
+  'lock-inputs': 'payroll.run.detail.lock-inputs',
+  calculate: 'payroll.run.detail.calculate',
+  review: 'payroll.run.detail.review',
+  approve: 'payroll.run.detail.approve',
+  publish: 'payroll.run.detail.publish',
+  'mark-paid': 'payroll.run.detail.mark-paid',
+  close: 'payroll.run.detail.close',
+  cancel: 'payroll.run.detail.cancel',
+  reopen: 'payroll.run.detail.reopen',
+}
 
 const emit = defineEmits<{
   action: [action: PayrollAction]
@@ -102,13 +106,14 @@ type ActionView = {
 
 const actionViews = computed<ActionView[]>(() => {
   const isReadOnly = props.readOnly === true
+  const serverActions = props.allowedActions
   return RULES.map((rule) => {
-    const permitted = props.capabilities.includes(rule.capability)
+    const permitted = serverActions?.includes(OBJECT_ACTION_KEYS[rule.action]) ?? false
     const transitionAllowed = rule.allowed(props.status)
     const disabled = isReadOnly || !permitted || !transitionAllowed || props.submitting != null
     let reason = ''
     if (isReadOnly) reason = '已发布批次为只读；导出仍可用，如需更正请新建更正批次。'
-    else if (!permitted) reason = `缺少能力 ${rule.capability}，此操作仅对应角色可执行。`
+    else if (!permitted) reason = '当前状态或授权不允许此操作。'
     else if (!transitionAllowed) reason = rule.reason(props.status)
     return {
       action: rule.action,

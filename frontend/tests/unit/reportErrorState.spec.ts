@@ -131,6 +131,24 @@ describe('report query states', () => {
     expect(wrapper.find('[data-testid="report-empty"]').exists()).toBe(false)
   })
 
+  it('renders only the columns the backend projected and never fabricates unauthorized money', async () => {
+    resource.post.mockResolvedValue(result({
+      columns: [{ key: 'employee_no', label: '工号', profile: 'P0_PUBLIC' }],
+      rows: [{ employee_no: 'SYNTH-001' }],
+      total: 1,
+    }))
+
+    const wrapper = await mountPage()
+    await flushPromises()
+    await wrapper.find('[data-testid="report-run"]').trigger('click')
+    await flushPromises()
+
+    const table = wrapper.get('[data-testid="report-run-table"]')
+    expect(table.text()).toContain('SYNTH-001')
+    expect(table.text()).not.toContain('应发工资')
+    expect(wrapper.html()).not.toContain('gross_cents')
+  })
+
   it('shows an honest empty result only after a successful zero-row response', async () => {
     resource.post.mockResolvedValue(result({ rows: [], total: 0 }))
 

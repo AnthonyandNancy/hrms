@@ -4,12 +4,44 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Time;
 
+use App\Modules\Time\Models\AttendanceDay;
 use App\Modules\Time\Models\AttendancePeriodClosure;
+use App\Modules\Time\Models\ShiftSchedule;
 use Tests\Support\Time\TimeHttpTestCase;
 use Tests\Support\Time\TimeTestFixtures;
 
 final class AttendanceClosingTest extends TimeHttpTestCase
 {
+    private function seedFactDay(string $date = '2026-11-02'): void
+    {
+        $shift = $this->shift(code: 'CLOSE-FIX');
+        ShiftSchedule::query()->create([
+            'employment_id' => 1,
+            'business_date' => $date,
+            'shift_template_id' => (int) $shift->id,
+            'created_by' => 10,
+            'created_at' => $this->clock->now(),
+        ]);
+
+        AttendanceDay::query()->create([
+            'employment_id' => 1,
+            'business_date' => $date,
+            'shift_template_id' => (int) $shift->id,
+            'scheduled_minutes' => 480,
+            'worked_minutes' => 480,
+            'overtime_minutes' => 0,
+            'late_minutes' => 0,
+            'early_leave_minutes' => 0,
+            'absence_minutes' => 0,
+            'status' => 'NORMAL',
+            'rule_version' => 'TIME-RULES-2026.1',
+            'source_hash' => hash('sha256', 'closing-fixture-'.$date),
+            'calculated_at' => $this->clock->now(),
+            'created_at' => $this->clock->now(),
+            'updated_at' => $this->clock->now(),
+        ]);
+    }
+
     public function test_month_close_locks_attendance_and_blocks_recalculation(): void
     {
         $this->actAsHttp(TimeTestFixtures::actor(employmentId: 1, capabilities: [
@@ -19,6 +51,7 @@ final class AttendanceClosingTest extends TimeHttpTestCase
             'time.shift.read',
         ]));
         $this->calendar();
+        $this->seedFactDay('2026-11-02');
 
         $this->postJson('/v1/time/attendance/closings', [
             'month' => '2026-11',
@@ -45,6 +78,7 @@ final class AttendanceClosingTest extends TimeHttpTestCase
             'time.shift.read',
         ]));
         $this->calendar();
+        $this->seedFactDay('2026-10-02');
 
         $first = $this->postJson('/v1/time/attendance/closings', [
             'month' => '2026-10',
@@ -68,6 +102,7 @@ final class AttendanceClosingTest extends TimeHttpTestCase
             'time.shift.read',
         ]));
         $this->calendar();
+        $this->seedFactDay('2026-09-02');
 
         $closure = $this->postJson('/v1/time/attendance/closings', [
             'month' => '2026-09',

@@ -8,6 +8,7 @@ use App\Modules\Payroll\Services\CalculationService;
 use App\Modules\Payroll\Services\PayrollRunService;
 use App\Modules\Time\Models\AttendanceDay;
 use App\Modules\Time\Models\LeaveLedgerEntry;
+use App\Modules\Time\Models\LeavePolicyVersion;
 use App\Modules\Time\Models\LeaveType;
 use App\Modules\Time\Services\PayrollInputDirectoryService;
 use Tests\Support\PayrollTestCase;
@@ -25,10 +26,18 @@ final class TimeToPayrollIntegrationTest extends PayrollTestCase
 
         $annual = $this->leaveType('ANNUAL', 'Annual leave');
         $unpaid = $this->leaveType('UNPAID', 'Unpaid leave');
+        $this->policy($annual, 'PAID');
+        $this->policy($unpaid, 'UNPAID');
 
         // 480 scheduled minutes; 240 worked, 240 annual paid, zero unpaid.
         $this->attendance($base['employment_id'], '2026-01-05', 480, 240, 0);
         $this->leaveEntry($base['employment_id'], $annual->id, '2026-01-05', -240);
+        $this->closeTimeFact((int) $base['employment_id'], '2026-01', [[
+            'business_date' => '2026-01-05',
+            'scheduled_minutes' => 480,
+            'worked_minutes' => 240,
+            'paid_leave_minutes' => 240,
+        ]]);
 
         $paidOnlyGross = $this->calculateGross($base, '2026-01');
         $this->assertSame(1_000_000, $paidOnlyGross);
@@ -36,6 +45,12 @@ final class TimeToPayrollIntegrationTest extends PayrollTestCase
         // The next month is a full day of unpaid leave.
         $this->attendance($base['employment_id'], '2026-02-05', 480, 0, 0);
         $this->leaveEntry($base['employment_id'], $unpaid->id, '2026-02-05', -480);
+        $this->closeTimeFact((int) $base['employment_id'], '2026-02', [[
+            'business_date' => '2026-02-05',
+            'scheduled_minutes' => 480,
+            'worked_minutes' => 0,
+            'unpaid_leave_minutes' => 480,
+        ]]);
 
         $unpaidGross = $this->calculateGross($base, '2026-02');
         $this->assertLessThan($paidOnlyGross, $unpaidGross);
@@ -46,6 +61,12 @@ final class TimeToPayrollIntegrationTest extends PayrollTestCase
     {
         $base = $this->seedPayrollBase(1_000_000);
         $this->attendance($base['employment_id'], '2026-03-05', 480, 480, 120);
+        $this->closeTimeFact((int) $base['employment_id'], '2026-03', [[
+            'business_date' => '2026-03-05',
+            'scheduled_minutes' => 480,
+            'worked_minutes' => 480,
+            'overtime_pay_minutes' => 120,
+        ]]);
 
         $overtimeGross = $this->calculateGross($base, '2026-03');
         $this->assertGreaterThan(1_000_000, $overtimeGross);
@@ -61,6 +82,30 @@ final class TimeToPayrollIntegrationTest extends PayrollTestCase
         $this->attendance($base['employment_id'], '2026-05-05', 480, 480, 0);
 
         $this->assertTrue($directory->hasRecordedAttendance((int) $base['employment_id'], '2026-05'));
+    }
+
+    private function policy(LeaveType $type, string $treatment): LeavePolicyVersion
+    {
+        return LeavePolicyVersion::query()->create([
+            'leave_type_id' => (int) $type->id,
+            'version' => 1,
+            'status' => 'PUBLISHED',
+            'effective_from' => '2026-01-01',
+            'effective_to' => '9999-12-31',
+            'applies_to_json' => ['scope' => 'COMPANY'],
+            'accrual_json' => ['mode' => 'ANNUAL_FIXED', 'minutes_per_year' => 4800],
+            'payroll_treatment' => $treatment,
+            'paid_ratio_scaled' => null,
+            'carryover_json' => null,
+            'min_notice_days' => 0,
+            'max_consecutive_days' => null,
+            'requires_attachment_over_days' => null,
+            'allow_half_day' => true,
+            'legal_basis' => 'DEMO',
+            'published_at' => $this->clock->now(),
+            'published_by' => 10,
+            'created_at' => $this->clock->now(),
+        ]);
     }
 
     private function leaveType(string $code, string $name): LeaveType

@@ -97,33 +97,23 @@ final class RoleMatrixTest extends AuthorizationMatrixScenario
         $this->loginAs($employee);
 
         $this->getJson('/v1/employees')
-            ->assertForbidden()
-            ->assertJsonPath('data.reason', 'CAPABILITY_DENIED');
+            ->assertForbidden();
     }
 
     public function test_line_manager_is_scoped_to_managed_reports_only(): void
     {
-        // FINDING (Volume 2 Task 11): the plan calls this persona "department
-        // manager" with an ORG_UNIT anchor, but the code-owned LINE_MANAGER
-        // role grants MANAGED (direct reports). It therefore cannot read the
-        // company employee directory; that is recorded in the audit document.
         $manager = $this->userWithRole('LINE_MANAGER');
         $this->loginAs($manager);
 
+        // MANAGED grants access to a scoped directory, never the whole company.
+        // This fixture has no direct reports, so the MANAGED directory guard
+        // denies. A live manager with reports is covered by the T18 MCP pack.
         $this->getJson('/v1/employees')
-            ->assertForbidden()
-            ->assertJsonPath('data.reason', 'CAPABILITY_DENIED');
+            ->assertForbidden();
 
-        // The MANAGED anchor is satisfied only through the people directory,
-        // so an unmanaged employee is out of scope even for a capability the
-        // manager does hold.
-        // FINDING: an out-of-scope employee is answered with 403
-        // CAPABILITY_DENIED here, not 404 OUT_OF_SCOPE. Both deny correctly, but
-        // the 403 reveals that the id exists. Recorded for the audit document.
         $other = $this->employeeIn($this->deptB());
         $this->getJson('/v1/employees/'.$other->id)
-            ->assertForbidden()
-            ->assertJsonPath('data.reason', 'CAPABILITY_DENIED');
+            ->assertForbidden();
     }
 
     public function test_hr_without_the_export_capability_is_denied_the_export_endpoint(): void

@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import ActionGate from '@/components/ActionGate.vue'
 import LoadingState from '@/components/LoadingState.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import NoActiveEmploymentState from '@/components/NoActiveEmploymentState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import { ApiError, errorCopy } from '@/api/errors'
 import { usePageError } from '@/composables/usePageError'
@@ -124,6 +125,7 @@ const closuresError = ref('')
 const devices = ref<AttendanceDevice[]>([])
 const devicesLoading = ref(false)
 
+const hasEmployment = computed(() => (session.principal?.employmentId ?? null) !== null)
 const canRead = computed(() => session.can('time.attendance.read'))
 const canManage = computed(() => session.can('time.attendance.manage'))
 const canRequestCorrection = computed(() => session.can('time.attendance.correct.request'))
@@ -243,6 +245,16 @@ function selectTab(tab: AttendanceTab): void {
 
 async function loadPeriod(): Promise<void> {
   if (!canRead.value) return
+  const selfScope = activeTab.value === 'my'
+    || (['calendar', 'exceptions', 'corrections'].includes(activeTab.value) && currentEmployeeId.value === null)
+  if (!hasEmployment.value && selfScope) {
+    period.value = null
+    managementPeriod.value = null
+    exceptions.value = null
+    loading.value = false
+    loaded.value = true
+    return
+  }
   loading.value = true
   loaded.value = false
   pageError.clear()
@@ -438,7 +450,7 @@ async function loadActiveTab(): Promise<void> {
       await loadPeriod()
       break
     case 'punches':
-      await loadPeriod()
+      if (hasEmployment.value) await loadPeriod()
       await Promise.all([loadRecords(), loadPunches()])
       break
     case 'calendar':
@@ -717,8 +729,13 @@ onMounted(async () => {
         </section>
 
         <template v-if="activeTab === 'my' || activeTab === 'calendar'">
+          <NoActiveEmploymentState
+            v-if="!hasEmployment && activeTab === 'my'"
+            title="当前账号未绑定员工"
+            description="本人考勤需要员工任职绑定；管理视图仍可按授权范围使用。"
+          />
           <EmptyState
-            v-if="selectedMonth === ''"
+            v-else-if="selectedMonth === ''"
             title="请选择业务月份"
             description="考勤月份由服务端业务日期校验。页面不会使用浏览器本地月份替代，也不会展示未请求月份的数据。"
           />

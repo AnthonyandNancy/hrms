@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { ApiError, errorCopy } from '@/api/errors'
 import { resourceDelete, resourcePost } from '@/api/resourceClient'
 import FormDrawer from '@/shared/ui/FormDrawer.vue'
@@ -16,6 +16,7 @@ export type RoleChoice = {
   name: string
   is_template?: boolean
   page_count?: number
+  anchor_types?: string[]
 }
 
 const props = withDefaults(
@@ -41,6 +42,15 @@ const emit = defineEmits<{
 }>()
 
 const working = ref<string[]>([])
+const anchorValues = reactive<Record<string, string>>({})
+
+const ID_ANCHORS = new Set(['ORG_UNIT', 'ORG_SUBTREE', 'CASE', 'PAYROLL_RUN'])
+const ANCHOR_LABELS: Record<string, string> = {
+  ORG_UNIT: '组织单元 ID',
+  ORG_SUBTREE: '组织子树 ID',
+  CASE: '案例 ID',
+  PAYROLL_RUN: '工资批次 ID',
+}
 const reason = ref('')
 const error = ref('')
 const warning = ref('')
@@ -56,6 +66,7 @@ function reset(): void {
   error.value = ''
   warning.value = ''
   submitting.value = false
+  for (const key of Object.keys(anchorValues)) delete anchorValues[key]
 }
 
 watch(
@@ -76,6 +87,27 @@ watch(
 
 const added = computed(() => working.value.filter((code) => !originalCodes().includes(code)))
 const removed = computed(() => originalCodes().filter((code) => !working.value.includes(code)))
+
+function roleFor(code: string): RoleChoice | undefined {
+  return props.roleChoices.find((role) => role.code === code)
+}
+
+function requiredAnchors(role: RoleChoice): string[] {
+  return [...new Set((role.anchor_types ?? []).filter((anchor) => ID_ANCHORS.has(anchor)))]
+}
+
+function anchorKey(roleCode: string, anchorType: string): string {
+  return `${roleCode}:${anchorType}`
+}
+
+function anchorInputsForAddedRoles(): Array<{ role: RoleChoice; anchors: string[] }> {
+  return added.value.flatMap((code) => {
+    const role = roleFor(code)
+    if (role === undefined) return []
+    const anchors = requiredAnchors(role)
+    return anchors.length === 0 ? [] : [{ role, anchors }]
+  })
+}
 const hasDiff = computed(() => added.value.length + removed.value.length > 0)
 
 const HIGH_RISK_ROLES = new Set(['SUPER_ADMIN', 'SYSTEM_ADMIN'])
@@ -147,13 +179,31 @@ async function save(): Promise<void> {
 
   const userId = props.userId
   const trimmedReason = reason.value.trim()
+
+  const bindingAnchors: Record<string, number> = {}
+  for (const input of anchorInputsForAddedRoles()) {
+    for (const anchor of input.anchors) {
+      const raw = anchorValues[anchorKey(input.role.code, anchor)] ?? ''
+      const parsed = Number(raw)
+      if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+        error.value = `请填写“${input.role.name || input.role.code}”的${ANCHOR_LABELS[anchor] ?? anchor}。`
+        return
+      }
+      bindingAnchors[anchor] = parsed
+    }
+  }
+
   submitting.value = true
 
   try {
     for (const code of added.value) {
+      const role = roleFor(code)
+      const anchors = role === undefined ? [] : requiredAnchors(role)
+      const body: Record<string, unknown> = { role_code: code, reason: trimmedReason }
+      if (anchors.length > 0) body.binding_anchors = bindingAnchors
       await resourcePost<unknown>(
         `/v1/users/${userId}/roles`,
-        { role_code: code, reason: trimmedReason },
+        body,
         { idempotencyKey: `role-assign-${userId}-${code}-${Date.now()}` },
       )
     }
@@ -238,6 +288,24 @@ async function save(): Promise<void> {
             </button>
           </li>
         </ul>
+      </section>
+
+      <section v-if="anchorInputsForAddedRoles().length > 0" data-testid="role-anchor-inputs">
+        <h3 class="section-title">新增角色的授权锚点</h3>
+        <p class="muted">角色包含组织/案例/工资批次锚点时，必须在这里填写真实编号；服务端会再次校验。</p>
+        <div v-for="input in anchorInputsForAddedRoles()" :key="input.role.code" class="role-anchor-group">
+          <h4>{{ input.role.name }}（{{ input.role.code }}）</h4>
+          <label v-for="anchor in input.anchors" :key="anchor" class="platform-field">
+            <span>{{ ANCHOR_LABELS[anchor] ?? anchor }}</span>
+            <input
+              v-model="anchorValues[anchorKey(input.role.code, anchor)]"
+              type="number"
+              min="1"
+              :data-testid="`role-anchor-${input.role.code}-${anchor}`"
+              placeholder="必填编号"
+            />
+          </label>
+        </div>
       </section>
 
       <section data-testid="role-diff">

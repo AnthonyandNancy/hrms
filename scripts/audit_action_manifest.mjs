@@ -12,7 +12,7 @@
 
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import { buildActionManifest, renderPageActionsTs, serializeManifestJson } from './generate_action_manifest.mjs'
+import { buildActionManifest, renderPageActionsPhp, renderPageActionsTs, serializeManifestJson } from './generate_action_manifest.mjs'
 import { fileURLToPath } from 'node:url'
 import {
   ACTION_CONFIRM,
@@ -419,7 +419,8 @@ function main() {
 
   const generatedJson = read('docs/generated/page-actions.json')
   const generatedTs = read('frontend/src/generated/pageActions.ts')
-  if (!generatedJson.endsWith('\n') || !generatedTs.endsWith('\n')) {
+  const generatedPhp = read('backend/app/Modules/IAM/Authorization/pageActions.generated.php')
+  if (!generatedJson.endsWith('\n') || !generatedTs.endsWith('\n') || !generatedPhp.endsWith('\n')) {
     console.error('actions:check FAIL: generated files must end with a newline')
     process.exitCode = 1
     return
@@ -430,6 +431,7 @@ function main() {
   // rather than a file someone can hand-edit.
   let expectedJson
   let expectedTs
+  let expectedPhp
   try {
     const manifest = buildActionManifest({
       pages,
@@ -441,6 +443,7 @@ function main() {
     })
     expectedJson = serializeManifestJson(manifest)
     expectedTs = renderPageActionsTs(manifest)
+    expectedPhp = renderPageActionsPhp(manifest)
   } catch (error) {
     console.error(`actions:check FAIL: regeneration failed: ${error.message}`)
     process.exitCode = 1
@@ -454,6 +457,10 @@ function main() {
   }
   if (expectedTs !== generatedTs) {
     console.error('actions:check FAIL: frontend/src/generated/pageActions.ts is stale; run node scripts/generate_action_manifest.mjs')
+    process.exitCode = 1
+  }
+  if (expectedPhp !== generatedPhp) {
+    console.error('actions:check FAIL: backend/app/Modules/IAM/Authorization/pageActions.generated.php is stale; run node scripts/generate_action_manifest.mjs')
     process.exitCode = 1
   }
 }

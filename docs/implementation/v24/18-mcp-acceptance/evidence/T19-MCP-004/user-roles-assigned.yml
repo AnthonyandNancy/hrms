@@ -1,0 +1,144 @@
+- generic [ref=f5e53]:
+  - link "跳到主要内容" [ref=f5e54] [cursor=pointer]:
+    - /url: "#main-content"
+  - complementary "主导航" [ref=f5e55]:
+    - generic [ref=f5e56]:
+      - generic [aria-hidden] [ref=f5e57]: 澄
+      - generic [ref=f5e58]:
+        - generic [ref=f5e59]: 澄明 HR
+        - generic [ref=f5e60]: Acme China Synthetic
+      - button "收起侧边栏" [expanded] [ref=f5e61] [cursor=pointer]
+    - navigation "V1.1 功能菜单" [ref=f5e65]:
+      - link "我的工作台" [ref=f5e67] [cursor=pointer]:
+        - /url: /workspace
+      - button "仪表盘" [ref=f5e73] [cursor=pointer]
+      - button "报表中心" [ref=f5e82] [cursor=pointer]
+      - button "员工档案" [ref=f5e91] [cursor=pointer]
+      - button "组织与岗位" [ref=f5e100] [cursor=pointer]
+      - button "员工异动" [ref=f5e109] [cursor=pointer]
+      - button "劳动合同" [ref=f5e118] [cursor=pointer]
+      - button "考勤打卡" [ref=f5e127] [cursor=pointer]
+      - button "请假管理" [ref=f5e138] [cursor=pointer]
+      - button "加班管理" [ref=f5e147] [cursor=pointer]
+      - button "出差管理" [ref=f5e158] [cursor=pointer]
+      - button "薪资管理" [ref=f5e167] [cursor=pointer]
+      - button "绩效考核" [ref=f5e178] [cursor=pointer]
+      - generic [ref=f5e186]:
+        - button "系统管理" [expanded] [ref=f5e187] [cursor=pointer]
+        - generic [ref=f5e196]:
+          - link "登录与账号安全" [ref=f5e197] [cursor=pointer]:
+            - /url: /account
+          - link "用户管理" [ref=f5e203] [cursor=pointer]:
+            - /url: /system/users
+          - link "角色管理" [ref=f5e209] [cursor=pointer]:
+            - /url: /system/roles
+          - link "页面目录" [ref=f5e215] [cursor=pointer]:
+            - /url: /system/pages
+          - link "审批流程中心" [ref=f5e221] [cursor=pointer]:
+            - /url: /workflow
+          - link "社保公积金与福利" [ref=f5e227] [cursor=pointer]:
+            - /url: /benefits
+          - link "公司设置" [ref=f5e233] [cursor=pointer]:
+            - /url: /system/settings
+          - link "消息与通知中心" [ref=f5e239] [cursor=pointer]:
+            - /url: /notifications
+          - link "日志审计与运维" [ref=f5e245] [cursor=pointer]:
+            - /url: /system/audit
+      - button "招聘需求" [ref=f5e252] [cursor=pointer]
+      - button "候选人" [ref=f5e261] [cursor=pointer]
+      - button "培训管理" [ref=f5e270] [cursor=pointer]
+      - button "公告通知" [ref=f5e280] [cursor=pointer]
+  - generic [ref=f5e290]:
+    - banner [ref=f5e291]:
+      - generic [ref=f5e292]:
+        - paragraph [ref=f5e293]: 澄明科技 · 人力资源
+        - generic [ref=f5e294]: 用户管理
+      - link "查看未读公告" [ref=f5e295] [cursor=pointer]:
+        - /url: /notices
+      - button "打开账户菜单" [ref=f5e303] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f5e304]: IN
+        - generic [ref=f5e305]: installer
+    - main [ref=f5e310]:
+      - generic [ref=f5e311]:
+        - generic [ref=f5e312]:
+          - generic [ref=f5e313]:
+            - heading "用户与角色" [level=1] [ref=f5e314]
+            - paragraph [ref=f5e315]: 维护登录账号、角色与员工任职；所有变更均按能力校验并记录审计。
+          - button "新增用户" [ref=f5e317] [cursor=pointer]
+        - generic [ref=f5e319]:
+          - paragraph [ref=f5e514]: 角色变更已提交；该用户的旧会话已撤销，下一次请求将按新权限求值。
+          - generic [ref=f5e320]:
+            - generic [ref=f5e321]:
+              - heading "账号列表" [level=2] [ref=f5e322]
+              - generic [ref=f5e323]: 共 2 个账号
+            - generic [ref=f5e324]:
+              - generic [ref=f5e325]:
+                - text: 状态
+                - generic [ref=f5e327] [cursor=pointer]:
+                  - generic:
+                    - combobox "状态 请选择" [ref=f5e329]
+                    - generic [ref=f5e330]: 请选择
+              - generic [ref=f5e335]:
+                - text: 角色
+                - generic [ref=f5e337] [cursor=pointer]:
+                  - generic:
+                    - combobox "角色 请选择" [ref=f5e339]
+                    - generic [ref=f5e340]: 请选择
+              - button "刷新" [ref=f5e345] [cursor=pointer]
+            - generic [ref=f5e347]:
+              - textbox "搜索列表" [ref=f5e355]:
+                - /placeholder: 搜索用户名或邮箱
+              - region "数据表格，可横向滚动" [ref=f5e357]:
+                - table "共 2 条记录，第 1 页，共 1 页" [ref=f5e358]:
+                  - caption [ref=f5e359]: 共 2 条记录，第 1 页，共 1 页
+                  - rowgroup [ref=f5e360]:
+                    - row [ref=f5e361]:
+                      - columnheader "用户名" [ref=f5e362]
+                      - columnheader "显示名称" [ref=f5e363]
+                      - columnheader "状态" [ref=f5e364]
+                      - columnheader "角色" [ref=f5e365]
+                      - columnheader "员工任职" [ref=f5e366]
+                      - columnheader "最近登录" [ref=f5e367]
+                      - columnheader "操作" [ref=f5e368]
+                  - rowgroup [ref=f5e515]:
+                    - row [ref=f5e516]:
+                      - cell "installer" [ref=f5e517]
+                      - cell "installer" [ref=f5e518]
+                      - cell "在职" [ref=f5e519]
+                      - cell "SYSTEM_ADMIN" [ref=f5e520]
+                      - cell "未绑定" [ref=f5e521]
+                      - cell "2026-11-28 18:35" [ref=f5e522]
+                      - cell [ref=f5e523]:
+                        - generic [ref=f5e524]:
+                          - button "分配角色" [ref=f5e525] [cursor=pointer]
+                          - button "权限预览" [ref=f5e527] [cursor=pointer]
+                          - button "停用" [ref=f5e529] [cursor=pointer]
+                          - button "撤销全部会话" [ref=f5e531] [cursor=pointer]
+                    - row [ref=f5e533]:
+                      - cell "t19.payroll" [ref=f5e534]
+                      - cell "t19.payroll" [ref=f5e535]
+                      - cell "在职" [ref=f5e536]
+                      - cell "AUDITOR、PAYROLL_SPECIALIST_T19" [ref=f5e537]
+                      - cell "未绑定" [ref=f5e538]
+                      - cell "2026-11-28 18:34" [ref=f5e539]
+                      - cell [ref=f5e540]:
+                        - generic [ref=f5e541]:
+                          - button "分配角色" [ref=f5e542] [cursor=pointer]
+                          - button "权限预览" [ref=f5e544] [cursor=pointer]
+                          - button "停用" [ref=f5e546] [cursor=pointer]
+                          - button "撤销全部会话" [ref=f5e548] [cursor=pointer]
+              - generic [ref=f5e404]:
+                - generic [ref=f5e405]: 共 2 条
+                - generic [ref=f5e406]:
+                  - generic [ref=f5e409] [cursor=pointer]:
+                    - generic:
+                      - combobox [ref=f5e411]
+                      - generic [ref=f5e412]: 20条/页
+                  - button "上一页" [disabled] [ref=f5e417]
+                  - list [ref=f5e418]:
+                    - listitem "第 1 页" [ref=f5e419]: "1"
+                  - button "下一页" [disabled] [ref=f5e420]
+    - contentinfo [ref=f5e421]:
+      - generic [ref=f5e422]: 澄明科技 HRMS
+      - generic [ref=f5e423]: 审计与导出操作会记录操作者、目的与时间
+      - generic [ref=f5e424]: 构建 aeccadc

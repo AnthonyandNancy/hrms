@@ -21,6 +21,7 @@ final readonly class AttendanceSummary
         public int $paidLeaveMinutes,
         public int $unpaidLeaveMinutes,
         public int $overtimeMinutes,
+        public int $travelMinutes = 0,
     ) {
         foreach ([
             'scheduled' => $scheduledMinutes,
@@ -28,20 +29,21 @@ final readonly class AttendanceSummary
             'paid leave' => $paidLeaveMinutes,
             'unpaid leave' => $unpaidLeaveMinutes,
             'overtime' => $overtimeMinutes,
+            'travel' => $travelMinutes,
         ] as $label => $minutes) {
             if ($minutes < 0) {
                 throw new InvalidArgumentException("Attendance {$label} minutes cannot be negative.");
             }
         }
 
-        if ($workedMinutes + $paidLeaveMinutes + $unpaidLeaveMinutes > $scheduledMinutes) {
+        if ($scheduledMinutes > 0 && $workedMinutes + $paidLeaveMinutes + $unpaidLeaveMinutes + $travelMinutes > $scheduledMinutes) {
             throw new InvalidArgumentException('Worked, paid leave, and unpaid leave minutes cannot exceed scheduled minutes.');
         }
     }
 
     public function paidMinutes(): int
     {
-        return $this->workedMinutes + $this->paidLeaveMinutes;
+        return $this->workedMinutes + $this->paidLeaveMinutes + $this->travelMinutes;
     }
 
     public function unworkedMinutes(): int

@@ -1,0 +1,180 @@
+- generic [ref=f37e3]:
+  - link "跳到主要内容" [ref=f37e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - complementary "主导航" [ref=f37e5]:
+    - generic [ref=f37e6]:
+      - generic [aria-hidden] [ref=f37e7]: 澄
+      - generic [ref=f37e8]:
+        - generic [ref=f37e9]: 澄明 HR
+        - generic [ref=f37e10]: Acme China Synthetic
+      - button "收起侧边栏" [expanded] [ref=f37e11] [cursor=pointer]
+    - navigation "V1.1 功能菜单" [ref=f37e15]:
+      - link "我的工作台" [ref=f37e17] [cursor=pointer]:
+        - /url: /workspace
+      - button "仪表盘" [ref=f37e23] [cursor=pointer]
+      - button "薪资管理" [ref=f37e32] [cursor=pointer]
+      - button "系统管理" [ref=f37e43] [cursor=pointer]
+  - generic [ref=f37e52]:
+    - banner [ref=f37e53]:
+      - generic [ref=f37e54]:
+        - paragraph [ref=f37e55]: 澄明科技 · 人力资源
+        - generic [ref=f37e56]: payroll-run-detail
+      - link "查看未读公告" [ref=f37e57] [cursor=pointer]:
+        - /url: /notices
+      - button "打开账户菜单" [ref=f37e65] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f37e66]: T1
+        - generic [ref=f37e67]: t18.publisher
+    - main [ref=f37e72]:
+      - generic [ref=f37e73]:
+        - generic [ref=f37e74]:
+          - generic [ref=f37e75]:
+            - button "← 返回薪资工作台" [ref=f37e76] [cursor=pointer]
+            - paragraph [ref=f37e77]: 薪酬 · 工资批次详情
+            - heading "2026 年 1 月 工资批次" [level=1] [ref=f37e78]
+            - paragraph [ref=f37e79]: "常规批次 · 批次 #1 · 发放日 2026年1月31日"
+          - generic [ref=f37e80]:
+            - generic [ref=f37e81]: 已发布
+            - generic [ref=f37e82]: 已发布
+        - status [ref=f37e83]: 该批次已发布，为只读状态：准备、试算、复核、批准与发布均已禁用；银行与税务导出仍然可用，如需修正请新建更正批次。
+        - region "批次基本信息" [ref=f37e84]:
+          - generic [ref=f37e85]:
+            - term [ref=f37e86]: 期间
+            - definition [ref=f37e87]: 2026-01（2026 年 1 月）
+          - generic [ref=f37e88]:
+            - term [ref=f37e89]: 发放日
+            - definition [ref=f37e90]: 2026年1月31日
+          - generic [ref=f37e91]:
+            - term [ref=f37e92]: 人数
+            - definition [ref=f37e93]: 4 人
+          - generic [ref=f37e94]:
+            - term [ref=f37e95]: 应发合计
+            - definition [ref=f37e96]:
+              - generic "¥50,000.00" [ref=f37e97]
+          - generic [ref=f37e99]:
+            - term [ref=f37e100]: 扣款合计
+            - definition [ref=f37e101]:
+              - generic "¥0.00" [ref=f37e102]
+          - generic [ref=f37e104]:
+            - term [ref=f37e105]: 实发合计
+            - definition [ref=f37e106]:
+              - generic "¥50,000.00" [ref=f37e107]
+          - generic [ref=f37e109]:
+            - term [ref=f37e110]: 输入锁定时间
+            - definition [ref=f37e111]: 2026-11-28 18:03
+          - generic [ref=f37e112]:
+            - term [ref=f37e113]: 快照版本
+            - definition [ref=f37e114]: v1
+        - generic [ref=f37e115]:
+          - generic [ref=f37e117]:
+            - heading "批次操作" [level=2] [ref=f37e118]
+            - paragraph [ref=f37e119]: 每个动作独立授权；按钮禁用时会说明原因，服务端仍会再次校验状态与职责分离。
+          - generic [ref=f37e120]:
+            - generic [ref=f37e121]:
+              - button "准备（锁定输入）" [disabled] [ref=f37e122]
+              - paragraph [ref=f37e123]: 已发布批次为只读；导出仍可用，如需更正请新建更正批次。
+            - generic [ref=f37e124]:
+              - button "试算" [disabled] [ref=f37e125]
+              - paragraph [ref=f37e126]: 已发布批次为只读；导出仍可用，如需更正请新建更正批次。
+            - generic [ref=f37e127]:
+              - button "提交复核" [disabled] [ref=f37e128]
+              - paragraph [ref=f37e129]: 已发布批次为只读；导出仍可用，如需更正请新建更正批次。
+            - generic [ref=f37e130]:
+              - button "批准" [disabled] [ref=f37e131]
+              - paragraph [ref=f37e132]: 已发布批次为只读；导出仍可用，如需更正请新建更正批次。
+            - generic [ref=f37e133]:
+              - button "发布" [disabled] [ref=f37e134]
+              - paragraph [ref=f37e135]: 已发布批次为只读；导出仍可用，如需更正请新建更正批次。
+            - generic [ref=f37e136]:
+              - button "标记发放" [disabled] [ref=f37e137]
+              - paragraph [ref=f37e138]: 已发布批次为只读；导出仍可用，如需更正请新建更正批次。
+            - generic [ref=f37e139]:
+              - button "关闭批次" [disabled] [ref=f37e140]
+              - paragraph [ref=f37e141]: 已发布批次为只读；导出仍可用，如需更正请新建更正批次。
+        - tablist "工资批次详情分区" [ref=f37e142]:
+          - tab "计薪输入" [selected] [ref=f37e143] [cursor=pointer]
+          - tab "复核" [ref=f37e144] [cursor=pointer]
+          - tab "发放登记" [ref=f37e145] [cursor=pointer]
+          - tab "工资条" [ref=f37e146] [cursor=pointer]
+          - tab "导出" [ref=f37e147] [cursor=pointer]
+        - region "计薪输入证据" [ref=f37e148]:
+          - generic [ref=f37e149]:
+            - generic [ref=f37e150]:
+              - heading "计薪输入证据" [level=2] [ref=f37e151]
+              - paragraph [ref=f37e152]: "来自 /v1/payroll/runs/{id}/inputs 的不可变输入快照；金额键只有具备工资条字段权限时才返回。"
+            - generic [ref=f37e153]: 4 条快照
+          - generic [ref=f37e155]:
+            - region "数据表格，可横向滚动" [ref=f37e157]:
+              - table "共 4 条记录，第 1 页，共 1 页" [ref=f37e158]:
+                - caption [ref=f37e159]: 共 4 条记录，第 1 页，共 1 页
+                - rowgroup [ref=f37e160]:
+                  - row [ref=f37e161]:
+                    - columnheader "员工关系" [ref=f37e162]
+                    - columnheader "快照类型" [ref=f37e163]
+                    - columnheader "版本" [ref=f37e164]
+                    - columnheader "来源摘要" [ref=f37e165]
+                    - columnheader "记录时间" [ref=f37e166]
+                - rowgroup [ref=f37e167]:
+                  - row [ref=f37e168]:
+                    - 'cell "员工 #1" [ref=f37e169]'
+                    - cell "INPUT" [ref=f37e170]
+                    - cell "v1" [ref=f37e171]
+                    - cell "6c900461042001a2" [ref=f37e172]
+                    - cell "2026-11-28 20:38" [ref=f37e173]
+                  - row [ref=f37e174]:
+                    - 'cell "员工 #2" [ref=f37e175]'
+                    - cell "INPUT" [ref=f37e176]
+                    - cell "v1" [ref=f37e177]
+                    - cell "bd6534b612d8a679" [ref=f37e178]
+                    - cell "2026-11-28 20:38" [ref=f37e179]
+                  - row [ref=f37e180]:
+                    - 'cell "员工 #3" [ref=f37e181]'
+                    - cell "INPUT" [ref=f37e182]
+                    - cell "v1" [ref=f37e183]
+                    - cell "271aeaf2b471fdf1" [ref=f37e184]
+                    - cell "2026-11-28 20:38" [ref=f37e185]
+                  - row [ref=f37e186]:
+                    - 'cell "员工 #4" [ref=f37e187]'
+                    - cell "INPUT" [ref=f37e188]
+                    - cell "v1" [ref=f37e189]
+                    - cell "363becb7614e0862" [ref=f37e190]
+                    - cell "2026-11-28 20:38" [ref=f37e191]
+            - generic [ref=f37e192]:
+              - generic [ref=f37e193]: 共 4 条
+              - generic [ref=f37e194]:
+                - generic [ref=f37e197] [cursor=pointer]:
+                  - generic:
+                    - combobox [ref=f37e199]
+                    - generic [ref=f37e200]: "4"
+                - button "上一页" [disabled] [ref=f37e205]
+                - list [ref=f37e206]:
+                  - listitem "第 1 页" [ref=f37e207]: "1"
+                - button "下一页" [disabled] [ref=f37e208]
+        - region "批次对账" [ref=f37e209]:
+          - generic [ref=f37e210]:
+            - generic [ref=f37e211]:
+              - heading "批次对账" [level=2] [ref=f37e212]
+              - paragraph [ref=f37e213]: 工资条、员工结果与批次合计必须一致；差异会逐条列出，不会自动忽略。
+            - generic [ref=f37e214]: 对账通过
+          - generic [ref=f37e215]:
+            - generic [ref=f37e216]:
+              - term [ref=f37e217]: 员工数
+              - definition [ref=f37e218]: "4"
+            - generic [ref=f37e219]:
+              - term [ref=f37e220]: 工资条数
+              - definition [ref=f37e221]: "4"
+            - generic [ref=f37e222]:
+              - term [ref=f37e223]: 应发合计
+              - definition [ref=f37e224]:
+                - generic "¥50,000.00" [ref=f37e225]
+            - generic [ref=f37e227]:
+              - term [ref=f37e228]: 实发合计
+              - definition [ref=f37e229]:
+                - generic "¥50,000.00" [ref=f37e230]
+            - generic [ref=f37e232]:
+              - term [ref=f37e233]: 单位成本
+              - definition [ref=f37e234]:
+                - generic "¥50,000.00" [ref=f37e235]
+    - contentinfo [ref=f37e237]:
+      - generic [ref=f37e238]: 澄明科技 HRMS
+      - generic [ref=f37e239]: 审计与导出操作会记录操作者、目的与时间
+      - generic [ref=f37e240]: 构建 04b874e0

@@ -1,0 +1,63 @@
+- generic [ref=f1e53]:
+  - link "跳到主要内容" [ref=f1e54] [cursor=pointer]:
+    - /url: "#main-content"
+  - complementary "主导航" [ref=f1e55]:
+    - generic [ref=f1e56]:
+      - generic [aria-hidden] [ref=f1e57]: 澄
+      - generic [ref=f1e58]:
+        - generic [ref=f1e59]: 澄明 HR
+        - generic [ref=f1e60]: Acme China Synthetic
+      - button "收起侧边栏" [expanded] [ref=f1e61] [cursor=pointer]
+    - navigation "V1.1 功能菜单" [ref=f1e65]:
+      - link "我的工作台" [ref=f1e67] [cursor=pointer]:
+        - /url: /workspace
+      - button "仪表盘" [ref=f1e73] [cursor=pointer]
+      - button "系统管理" [ref=f1e82] [cursor=pointer]
+      - generic [ref=f1e91]:
+        - button "招聘需求" [expanded] [ref=f1e92] [cursor=pointer]
+        - link "招聘需求列表" [ref=f1e101] [cursor=pointer]:
+          - /url: /recruitment/requests
+      - button "候选人" [ref=f1e107] [cursor=pointer]
+  - generic [ref=f1e115]:
+    - banner [ref=f1e116]:
+      - generic [ref=f1e117]:
+        - paragraph [ref=f1e118]: 澄明科技 · 人力资源
+        - generic [ref=f1e119]: 招聘需求列表
+      - link "查看未读公告" [ref=f1e120] [cursor=pointer]:
+        - /url: /notices
+      - button "打开账户菜单" [ref=f1e128] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f1e129]: T1
+        - generic [ref=f1e130]: t18.recruiter
+    - main [ref=f1e135]:
+      - generic [ref=f1e136]:
+        - generic [ref=f1e137]:
+          - generic [ref=f1e138]:
+            - heading "招聘需求" [level=1] [ref=f1e139]
+            - paragraph [ref=f1e140]: 按组织单元维护招聘需求、编制和预算。创建后进入服务端审批；审批通过前不能发布岗位或安排面试。
+          - generic [ref=f1e141]:
+            - button "刷新" [ref=f1e142] [cursor=pointer]
+            - button "新建招聘需求" [ref=f1e143] [cursor=pointer]
+        - generic [ref=f1e144]:
+          - region "招聘需求筛选" [ref=f1e145]:
+            - generic [ref=f1e146]:
+              - generic [ref=f1e147]: 状态
+              - generic [ref=f1e149] [cursor=pointer]:
+                - generic:
+                  - combobox "状态 请选择" [ref=f1e151]
+                  - generic: 请选择
+            - generic [ref=f1e156]:
+              - generic [ref=f1e157]: 搜索
+              - textbox "搜索" [ref=f1e160]:
+                - /placeholder: 岗位或需求编号
+            - button "查询" [ref=f1e161] [cursor=pointer]
+          - generic [ref=f1e162]:
+            - generic [aria-hidden] [ref=f1e163]: —
+            - generic [ref=f1e164]:
+              - heading "还没有招聘需求" [level=2] [ref=f1e165]
+              - paragraph [ref=f1e166]: 新建招聘需求后会进入审批流程；本页不展示演示或虚构需求。
+            - button "新建招聘需求" [ref=f1e167] [cursor=pointer]
+          - paragraph [ref=f1e169]: 关闭需求会保留历史并停止新增候选人；操作需二次确认。编辑会记录审计。
+    - contentinfo [ref=f1e170]:
+      - generic [ref=f1e171]: 澄明科技 HRMS
+      - generic [ref=f1e172]: 审计与导出操作会记录操作者、目的与时间
+      - generic [ref=f1e173]: 构建 b9e21f5

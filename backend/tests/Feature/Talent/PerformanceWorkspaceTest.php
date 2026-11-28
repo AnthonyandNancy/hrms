@@ -7,6 +7,7 @@ namespace Tests\Feature\Talent;
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\People\Models\Employment;
 use App\Modules\Talent\Models\PerformanceCycle;
+use App\Modules\Talent\Models\PerformanceResultSnapshot;
 use App\Modules\Talent\Models\PerformanceReview;
 use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\AnchorType;
@@ -321,6 +322,55 @@ final class PerformanceWorkspaceTest extends TalentTestCase
         $this->peopleScenario->assignment($unrelated, $org);
 
         return [$manager, $report, $unrelated, $this->createPerformanceCycle('Synthetic manager review cycle')];
+    }
+
+    public function test_bonus_mapping_can_be_created_listed_and_approved_over_http(): void
+    {
+        $cycle = $this->createPerformanceCycle('Synthetic bonus mapping cycle');
+        $review = $this->createReview($cycle, 1001, selfRating: '5');
+        $review->forceFill(['status' => 'SUBMITTED', 'manager_rating' => '5'])->save();
+        $snapshot = PerformanceResultSnapshot::query()->create([
+            'cycle_id' => (int) $cycle->id,
+            'review_id' => (int) $review->id,
+            'employment_id' => 1001,
+            'self_rating' => '5',
+            'manager_rating' => '5',
+            'calibrated_rating' => null,
+            'final_rating' => '5',
+            'score_scaled' => 5_000,
+            'grade' => 'A',
+            'source_revision' => hash('sha256', 'bonus-http'),
+            'published_at' => $this->clock->now(),
+            'published_by' => 20,
+        ]);
+
+        $this->actAs(20, 1001);
+        $this->bindScopedAuthorizer(company: true, managed: false, self: true);
+        $headers = ['Idempotency-Key' => 'bonus-mapping-create', 'X-CSRF-Token' => 'test-csrf-token'];
+
+        $created = $this->postJson('/v1/performance/bonus-mappings', [
+            'snapshot_id' => (int) $snapshot->id,
+            'payroll_item_code' => 'PERFORMANCE_BONUS',
+            'period' => '2026-01',
+            'amount_cents' => 50_000,
+            'mapping_version' => 'V1',
+        ], $headers)
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'DRAFT')
+            ->assertJsonPath('data.amount_cents', 50_000);
+        $mappingId = (int) $created->json('data.id');
+
+        $this->getJson('/v1/performance/bonus-mappings?employment_id=1001&period=2026-01')
+            ->assertOk()
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.items.0.status', 'DRAFT');
+
+        $this->postJson("/v1/performance/bonus-mappings/{$mappingId}/approve", [], [
+            'Idempotency-Key' => 'bonus-mapping-approve',
+            'X-CSRF-Token' => 'test-csrf-token',
+        ])->assertOk()
+            ->assertJsonPath('data.status', 'APPROVED')
+            ->assertJsonPath('data.approved_by', 20);
     }
 
     private function bindScopedAuthorizer(bool $company, bool $managed, bool $self, ?int $managedEmploymentId = null): void

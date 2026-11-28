@@ -10,6 +10,7 @@ use App\Modules\Time\Models\AttendancePeriodClosure;
 use App\Modules\Time\Models\AttendanceRuleVersion;
 use App\Modules\Time\Models\ShiftSchedule;
 use App\Modules\Time\Models\ShiftTemplate;
+use App\Modules\Time\Models\TimePayrollFactVersion;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
@@ -17,6 +18,7 @@ use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\Clock;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Attendance operations read/write surface for K4.
@@ -187,70 +189,72 @@ final class AttendanceOpsService
         int $shiftTemplateId,
         int $actorUserId,
     ): array {
-        $this->closings->assertOpen(substr($businessDate, 0, 7));
+        return DB::transaction(function () use ($employmentId, $businessDate, $shiftTemplateId, $actorUserId): array {
+            $this->closings->assertOpen(substr($businessDate, 0, 7));
 
-        $template = ShiftTemplate::query()
-            ->whereKey($shiftTemplateId)
-            ->first();
+            $template = ShiftTemplate::query()
+                ->whereKey($shiftTemplateId)
+                ->first();
 
-        if ($template === null) {
-            throw new NotFoundOrForbiddenException;
-        }
-
-        if ($template->valid_from->format('Y-m-d') > $businessDate || $template->valid_to->format('Y-m-d') <= $businessDate) {
-            throw new ValidationException(
-                ['shift_template_id' => ['The shift template is not effective on the requested business date.']],
-                'The shift template is not effective on the requested business date.',
-                ['reason' => 'SHIFT_TEMPLATE_NOT_EFFECTIVE'],
-            );
-        }
-
-        $existing = ShiftSchedule::query()
-            ->where('employment_id', $employmentId)
-            ->where('business_date', $businessDate)
-            ->first();
-
-        if ($existing !== null) {
-            if ((int) $existing->shift_template_id === $shiftTemplateId) {
-                return ['row' => $existing, 'replayed' => true];
+            if ($template === null) {
+                throw new NotFoundOrForbiddenException;
             }
 
-            throw new ConflictException(
-                'The employment already has a different shift scheduled on this business date.',
-                ['reason' => 'SCHEDULE_CONFLICT', 'business_date' => $businessDate],
+            if ($template->valid_from->format('Y-m-d') > $businessDate || $template->valid_to->format('Y-m-d') <= $businessDate) {
+                throw new ValidationException(
+                    ['shift_template_id' => ['The shift template is not effective on the requested business date.']],
+                    'The shift template is not effective on the requested business date.',
+                    ['reason' => 'SHIFT_TEMPLATE_NOT_EFFECTIVE'],
+                );
+            }
+
+            $existing = ShiftSchedule::query()
+                ->where('employment_id', $employmentId)
+                ->where('business_date', $businessDate)
+                ->first();
+
+            if ($existing !== null) {
+                if ((int) $existing->shift_template_id === $shiftTemplateId) {
+                    return ['row' => $existing, 'replayed' => true];
+                }
+
+                throw new ConflictException(
+                    'The employment already has a different shift scheduled on this business date.',
+                    ['reason' => 'SCHEDULE_CONFLICT', 'business_date' => $businessDate],
+                );
+            }
+
+            try {
+                $row = ShiftSchedule::query()->create([
+                    'employment_id' => $employmentId,
+                    'business_date' => $businessDate,
+                    'shift_template_id' => $shiftTemplateId,
+                    'created_by' => $actorUserId,
+                    'created_at' => $this->clock->now(),
+                ]);
+            } catch (UniqueConstraintViolationException) {
+                // The service check and the unique index are belt and braces: a
+                // concurrent insert still surfaces as the same stable conflict.
+                throw new ConflictException(
+                    'The employment already has a different shift scheduled on this business date.',
+                    ['reason' => 'SCHEDULE_CONFLICT', 'business_date' => $businessDate],
+                );
+            }
+
+            $this->audit->record(
+                $actorUserId,
+                'time.shift.schedule.created',
+                'shift_schedule',
+                (int) $row->id,
+                after: [
+                    'employment_id' => $employmentId,
+                    'business_date' => $businessDate,
+                    'shift_template_id' => $shiftTemplateId,
+                ],
             );
-        }
 
-        try {
-            $row = ShiftSchedule::query()->create([
-                'employment_id' => $employmentId,
-                'business_date' => $businessDate,
-                'shift_template_id' => $shiftTemplateId,
-                'created_by' => $actorUserId,
-                'created_at' => $this->clock->now(),
-            ]);
-        } catch (UniqueConstraintViolationException) {
-            // The service check and the unique index are belt and braces: a
-            // concurrent insert still surfaces as the same stable conflict.
-            throw new ConflictException(
-                'The employment already has a different shift scheduled on this business date.',
-                ['reason' => 'SCHEDULE_CONFLICT', 'business_date' => $businessDate],
-            );
-        }
-
-        $this->audit->record(
-            $actorUserId,
-            'time.shift.schedule.created',
-            'shift_schedule',
-            (int) $row->id,
-            after: [
-                'employment_id' => $employmentId,
-                'business_date' => $businessDate,
-                'shift_template_id' => $shiftTemplateId,
-            ],
-        );
-
-        return ['row' => $row->refresh(), 'replayed' => false];
+            return ['row' => $row->refresh(), 'replayed' => false];
+        });
     }
 
     /**
@@ -276,16 +280,42 @@ final class AttendanceOpsService
             ->get()
             ->all();
 
-        $items = array_map(static fn (AttendancePeriodClosure $row): array => [
-            'id' => (int) $row->id,
-            'month' => (string) $row->month,
-            'status' => (string) $row->status,
-            'closed_by' => $row->closed_by !== null ? (int) $row->closed_by : null,
-            'closed_at' => $row->closed_at?->toIso8601ZuluString(),
-            'reopened_by' => $row->reopened_by !== null ? (int) $row->reopened_by : null,
-            'reopened_at' => $row->reopened_at?->toIso8601ZuluString(),
-            'reopen_reason' => $row->reopen_reason !== null ? (string) $row->reopen_reason : null,
-        ], $rows);
+        $versionIds = array_values(array_filter(array_map(
+            static fn (AttendancePeriodClosure $row): ?int => $row->current_fact_version_id !== null
+                ? (int) $row->current_fact_version_id
+                : null,
+            $rows,
+        )));
+
+        /** @var array<int, TimePayrollFactVersion> $versions */
+        $versions = $versionIds === []
+            ? []
+            : TimePayrollFactVersion::query()
+                ->whereIn('id', $versionIds)
+                ->get()
+                ->keyBy(static fn (TimePayrollFactVersion $version): int => (int) $version->id)
+                ->all();
+
+        $items = array_map(static function (AttendancePeriodClosure $row) use ($versions): array {
+            $version = $row->current_fact_version_id !== null
+                ? ($versions[(int) $row->current_fact_version_id] ?? null)
+                : null;
+
+            return [
+                'id' => (int) $row->id,
+                'month' => (string) $row->month,
+                'status' => (string) $row->status,
+                'closed_by' => $row->closed_by !== null ? (int) $row->closed_by : null,
+                'closed_at' => $row->closed_at?->toIso8601ZuluString(),
+                'reopened_by' => $row->reopened_by !== null ? (int) $row->reopened_by : null,
+                'reopened_at' => $row->reopened_at?->toIso8601ZuluString(),
+                'reopen_reason' => $row->reopen_reason !== null ? (string) $row->reopen_reason : null,
+                'current_fact_version_id' => $row->current_fact_version_id !== null ? (int) $row->current_fact_version_id : null,
+                'fact_version' => $version?->version !== null ? (int) $version->version : null,
+                'source_hash' => $version?->source_hash,
+                'exception_count' => $version !== null ? (int) $version->exception_count : null,
+            ];
+        }, $rows);
 
         return ['items' => $items, 'total' => $total, 'page' => $page, 'page_size' => $pageSize];
     }

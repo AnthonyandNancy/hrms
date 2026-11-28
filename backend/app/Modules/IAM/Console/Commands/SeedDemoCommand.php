@@ -27,6 +27,12 @@ final class SeedDemoCommand extends Command
 
     public function handle(PasswordHasher $passwords, Clock $clock): int
     {
+        if (app()->environment('production')) {
+            $this->error('iam:seed-demo is refused in production.');
+
+            return self::FAILURE;
+        }
+
         $password = config('iam.demo_seed_password');
 
         if (! is_string($password) || strlen($password) < 12) {
@@ -90,8 +96,8 @@ final class SeedDemoCommand extends Command
                 $user->refresh();
             }
 
-            $employeeNo = $demoEmployments[$username] ?? null;
-            $employmentId = $employeeNo !== null ? $people->employmentIdByEmployeeNo($employeeNo) : null;
+            $employeeNo = $demoEmployments[$username];
+            $employmentId = $people->employmentIdByEmployeeNo($employeeNo);
             if ($employmentId !== null) {
                 // Stable start date makes repeated demo seeds idempotent while
                 // giving every synthetic operator a real self-service identity.

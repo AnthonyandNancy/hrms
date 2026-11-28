@@ -1,0 +1,7 @@
+minio Up About an hour (healthy)
+mysql Up About an hour (healthy)
+nginx Up 21 minutes (healthy)
+php-app Up 21 minutes (healthy)
+php-scheduler Up 21 minutes (healthy)
+php-worker Up 21 minutes (healthy)
+redis Up About an hour (healthy)

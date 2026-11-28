@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payroll\Authorization;
 
 use App\Modules\Payroll\Models\PayrollRun;
+use App\Modules\Payroll\Models\PayrollRunMember;
 use App\Shared\Authorization\Contracts\PayrollRunMembershipDirectory;
 
 /**
@@ -24,6 +25,16 @@ final class EloquentPayrollRunMembershipDirectory implements PayrollRunMembershi
             return false;
         }
 
+        $memberIds = PayrollRunMember::query()
+            ->where('run_id', $payrollRunId)
+            ->where('user_id', $userId)
+            ->exists();
+
+        if ($memberIds) {
+            return true;
+        }
+
+        // Compatibility for runs created before the membership table existed.
         $members = array_filter([
             (int) $run->prepared_by,
             $run->reviewed_by !== null ? (int) $run->reviewed_by : null,
@@ -37,9 +48,16 @@ final class EloquentPayrollRunMembershipDirectory implements PayrollRunMembershi
     /** @return list<int> */
     public function runIdsForUser(int $userId, string $businessDate): array
     {
+        $memberRunIds = PayrollRunMember::query()
+            ->where('user_id', $userId)
+            ->pluck('run_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->all();
+
         return PayrollRun::query()
-            ->where(function ($query) use ($userId): void {
-                $query->where('prepared_by', $userId)
+            ->where(function ($query) use ($userId, $memberRunIds): void {
+                $query->whereIn('id', $memberRunIds)
+                    ->orWhere('prepared_by', $userId)
                     ->orWhere('reviewed_by', $userId)
                     ->orWhere('approved_by', $userId)
                     ->orWhere('published_by', $userId);

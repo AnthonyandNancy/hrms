@@ -217,7 +217,7 @@ final class ExportService
 
         $definition = $this->reports->definition((string) $job->report_code);
         $fields = array_values(array_map('strval', (array) ($job->field_whitelist_json ?? $job->fields_json)));
-        $this->assertFieldsExportable($principal, $definition, $fields, $asOf);
+        $this->assertFieldsExportable($principal, $definition, $fields, $asOf, creation: false);
 
         // The scope fingerprint captures the caller's current auth version,
         // export/report read bindings and anchor ids at creation. Recomputing
@@ -261,7 +261,7 @@ final class ExportService
      * @param  array<string, mixed>  $definition
      * @param  list<string>  $fields
      */
-    private function assertFieldsExportable(Principal $principal, array $definition, array $fields, string $asOf): void
+    private function assertFieldsExportable(Principal $principal, array $definition, array $fields, string $asOf, bool $creation = true): void
     {
         if ($fields === []) {
             throw new ValidationException(['fields' => ['At least one export field is required.']], 'The given data was invalid.', ['reason' => 'EXPORT_FIELDS_REQUIRED']);
@@ -294,6 +294,17 @@ final class ExportService
 
         foreach ($policyFields as $key => $profile) {
             if ($profile !== FieldProfile::P0_PUBLIC && ! $this->profileGranted($principal, $profile, $asOf)) {
+                if ($creation) {
+                    throw new ValidationException(
+                        ['fields' => ["Field {$key} is not covered by the current export field authorization."]],
+                        'The given data was invalid.',
+                        ['reason' => 'EXPORT_FIELD_FORBIDDEN'],
+                    );
+                }
+
+                // Download re-authorization keeps its established 403
+                // semantics: a stale link whose field tier was revoked is
+                // forbidden, not a malformed new request.
                 throw new AuthorizationException('Forbidden.');
             }
         }

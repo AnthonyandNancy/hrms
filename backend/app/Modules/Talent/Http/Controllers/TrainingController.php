@@ -8,6 +8,7 @@ use App\Modules\Talent\Models\TrainingCourse;
 use App\Modules\Talent\Models\TrainingEnrollment;
 use App\Modules\Talent\Models\TrainingProgram;
 use App\Modules\Talent\Models\TrainingSession;
+use App\Modules\Talent\Services\TrainingExamAttemptService;
 use App\Modules\Talent\Services\TrainingExamService;
 use App\Modules\Talent\Services\TrainingLifecycleService;
 use App\Modules\Talent\Services\TrainingService;
@@ -38,6 +39,7 @@ final class TrainingController
         private readonly CompanyBusinessDate $businessDates,
         private readonly TrainingService $training,
         private readonly TrainingExamService $exams,
+        private readonly TrainingExamAttemptService $attempts,
         private readonly TrainingLifecycleService $lifecycle,
     ) {}
 
@@ -386,6 +388,46 @@ final class TrainingController
         return $this->runCommand($request, 'talent.training.exam.create', 'training.exam.manage', $data, function (int $actorUserId) use ($data): array {
             return ['status' => 201, 'body' => $this->exams->createExam($actorUserId, $data)];
         });
+    }
+
+    public function submitExamAttempt(Request $request, int $examId): JsonResponse
+    {
+        $data = $request->validate([
+            'enrollment_id' => ['required', 'integer', 'min:1'],
+            'score' => ['required', 'integer', 'min:0', 'max:10000'],
+            'answers' => ['sometimes', 'array'],
+        ]);
+
+        return $this->runCommand(
+            $request,
+            'talent.training.exam.attempt',
+            'training.exam.manage',
+            ['exam_id' => $examId, ...$data],
+            function (int $actorUserId) use ($examId, $data): array {
+                $attempt = $this->attempts->submit(
+                    $actorUserId,
+                    $examId,
+                    (int) $data['enrollment_id'],
+                    (int) $data['score'],
+                    (array) ($data['answers'] ?? []),
+                );
+
+                return [
+                    'status' => 201,
+                    'body' => [
+                        'attempt_id' => (int) $attempt->id,
+                        'exam_id' => (int) $attempt->exam_id,
+                        'enrollment_id' => (int) $attempt->enrollment_id,
+                        'employment_id' => (int) $attempt->employment_id,
+                        'attempt_no' => (int) $attempt->attempt_no,
+                        'score' => (int) $attempt->score,
+                        'passed' => (bool) $attempt->passed,
+                        'source_hash' => (string) $attempt->source_hash,
+                        'submitted_at' => $attempt->submitted_at->toIso8601ZuluString(),
+                    ],
+                ];
+            },
+        );
     }
 
     public function publishExam(Request $request, int $examId): JsonResponse

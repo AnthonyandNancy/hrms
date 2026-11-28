@@ -274,7 +274,7 @@ final class AttendanceOpsController
         );
 
         $data = $request->validate([
-            'active' => ['nullable', 'boolean'],
+            'active' => ['nullable', 'in:true,false,1,0'],
             'page' => ['nullable', 'integer', 'min:1'],
             'page_size' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
@@ -283,7 +283,9 @@ final class AttendanceOpsController
         $pageSize = isset($data['page_size']) ? (int) $data['page_size'] : 20;
 
         $result = $this->operations->devices(
-            active: array_key_exists('active', $data) ? (bool) $data['active'] : null,
+            active: array_key_exists('active', $data)
+                ? filter_var($data['active'], FILTER_VALIDATE_BOOLEAN)
+                : null,
             page: $page,
             pageSize: $pageSize,
         );

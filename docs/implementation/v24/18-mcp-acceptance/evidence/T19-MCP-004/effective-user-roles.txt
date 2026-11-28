@@ -1,0 +1,4 @@
+mysql: [Warning] Using a password on the command line interface can be insecure.
+username	auth_version	role_code	role_version
+t19.payroll	5	AUDITOR	5
+t19.payroll	5	PAYROLL_SPECIALIST_T19	5

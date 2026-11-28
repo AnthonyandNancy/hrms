@@ -1,0 +1,4 @@
+mysql: [Warning] Using a password on the command line interface can be insecure.
+auth_version	capability_code	anchor_type	rows_at_version
+7	org.tree.read	COMPANY	1
+7	people.employee.read	COMPANY	1

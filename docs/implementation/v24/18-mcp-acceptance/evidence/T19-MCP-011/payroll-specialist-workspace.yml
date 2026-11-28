@@ -1,0 +1,107 @@
+- generic [ref=f36e3]:
+  - link "跳到主要内容" [ref=f36e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - complementary "主导航" [ref=f36e5]:
+    - generic [ref=f36e6]:
+      - generic [aria-hidden] [ref=f36e7]: 澄
+      - generic [ref=f36e8]:
+        - generic [ref=f36e9]: 澄明 HR
+        - generic [ref=f36e10]: Acme China Synthetic
+      - button "收起侧边栏" [expanded] [ref=f36e11] [cursor=pointer]
+    - navigation "V1.1 功能菜单" [ref=f36e15]:
+      - link "我的工作台" [ref=f36e17] [cursor=pointer]:
+        - /url: /workspace
+      - button "仪表盘" [ref=f36e23] [cursor=pointer]
+      - generic [ref=f36e31]:
+        - button "薪资管理" [expanded] [ref=f36e32] [cursor=pointer]
+        - link "薪资概览" [ref=f36e43] [cursor=pointer]:
+          - /url: /payroll
+      - button "系统管理" [ref=f36e51] [cursor=pointer]
+  - generic [ref=f36e60]:
+    - banner [ref=f36e61]:
+      - generic [ref=f36e62]:
+        - paragraph [ref=f36e63]: 澄明科技 · 人力资源
+        - generic [ref=f36e64]: 薪资概览
+      - link "查看未读公告" [ref=f36e65] [cursor=pointer]:
+        - /url: /notices
+      - button "打开账户菜单" [ref=f36e73] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f36e74]: T1
+        - generic [ref=f36e75]: t18.payroll
+    - main [ref=f36e80]:
+      - generic [ref=f36e81]:
+        - generic [ref=f36e83]:
+          - paragraph [ref=f36e84]: 薪酬 · 工资核算
+          - heading "薪资工作台" [level=1] [ref=f36e85]
+          - paragraph [ref=f36e86]: 在一个工作台完成薪资配置、批次核算、工资条与汇总报表。金额由服务端以整数分返回， 费率保持十进制字符串；准备、复核、批准与发布各自独立授权。
+        - tablist "薪资工作台分类" [ref=f36e87]:
+          - tab "批次" [selected] [ref=f36e88] [cursor=pointer]
+          - tab "配置" [ref=f36e89] [cursor=pointer]
+        - generic [ref=f36e90]:
+          - generic [ref=f36e91]:
+            - generic [ref=f36e92]:
+              - heading "工资批次" [level=2] [ref=f36e93]
+              - paragraph [ref=f36e94]: 期间、状态与金额均来自真实批次；金额只按整数分传输，准备/复核/批准/发布分别授权。
+            - generic [ref=f36e95]:
+              - button "刷新" [ref=f36e96] [cursor=pointer]
+              - button "创建批次" [ref=f36e98] [cursor=pointer]
+          - region "工资批次筛选" [ref=f36e100]:
+            - generic [ref=f36e101]:
+              - generic [ref=f36e102]: 期间
+              - textbox "期间" [ref=f36e105]:
+                - /placeholder: 2026-11
+            - generic [ref=f36e106]:
+              - generic [ref=f36e107]: 状态
+              - generic [ref=f36e109] [cursor=pointer]:
+                - generic:
+                  - combobox "状态 请选择" [ref=f36e111]
+                  - generic: 请选择
+            - generic [ref=f36e116]:
+              - button "查询" [ref=f36e117] [cursor=pointer]
+              - button "清除筛选" [disabled] [ref=f36e119]
+          - note [ref=f36e121]: 当前账号可准备批次；试算、复核、批准与发布仍由服务端按批次成员与职责分离校验。
+          - generic [ref=f36e122]:
+            - generic [ref=f36e123]:
+              - generic [ref=f36e124]:
+                - heading "工资批次" [level=2] [ref=f36e125]
+                - paragraph [ref=f36e126]: 只显示当前账号所属的批次；金额为服务端整数分，仅在渲染时格式化。
+              - generic [ref=f36e127]: 共 1 批
+            - table "工资批次列表" [ref=f36e129]:
+              - caption [ref=f36e130]: 工资批次列表
+              - rowgroup [ref=f36e131]:
+                - row [ref=f36e132]:
+                  - columnheader "期间" [ref=f36e133]
+                  - columnheader "批次类型" [ref=f36e134]
+                  - columnheader "阶段" [ref=f36e135]
+                  - columnheader "明细状态" [ref=f36e136]
+                  - columnheader "人数" [ref=f36e137]
+                  - columnheader "应发合计" [ref=f36e138]
+                  - columnheader "扣款合计" [ref=f36e139]
+                  - columnheader "实发合计" [ref=f36e140]
+                  - columnheader "发放日" [ref=f36e141]
+                  - columnheader "操作" [ref=f36e142]
+              - rowgroup [ref=f36e143]:
+                - row [ref=f36e144]:
+                  - rowheader "2026-01 常规批次" [ref=f36e145]:
+                    - button "2026-01" [ref=f36e146] [cursor=pointer]
+                    - generic [ref=f36e147]: 常规批次
+                  - cell "常规批次" [ref=f36e148]
+                  - cell "草稿 草稿" [ref=f36e149]:
+                    - generic [ref=f36e150]: 草稿
+                    - generic [ref=f36e151]: 草稿
+                  - cell "0 人" [ref=f36e152]
+                  - cell "0" [ref=f36e153]
+                  - cell "¥0.00" [ref=f36e154]
+                  - cell "¥0.00" [ref=f36e157]
+                  - cell "¥0.00" [ref=f36e160]
+                  - cell "2026年1月31日" [ref=f36e163]
+                  - cell [ref=f36e164]:
+                    - button "打开详情" [ref=f36e165] [cursor=pointer]
+            - generic [ref=f36e166]:
+              - generic [ref=f36e167]: 第 1 / 1 页
+              - generic [ref=f36e168]:
+                - button "上一页" [disabled] [ref=f36e169]
+                - button "下一页" [disabled] [ref=f36e170]
+    - contentinfo [ref=f36e171]:
+      - generic [ref=f36e172]: 澄明科技 HRMS
+      - generic [ref=f36e173]: 审计与导出操作会记录操作者、目的与时间
+      - generic [ref=f36e174]: 构建 04b874e0

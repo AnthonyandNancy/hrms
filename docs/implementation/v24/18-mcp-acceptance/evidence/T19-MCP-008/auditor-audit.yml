@@ -1,0 +1,322 @@
+- generic [ref=f22e3]:
+  - link "跳到主要内容" [ref=f22e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - complementary "主导航" [ref=f22e5]:
+    - generic [ref=f22e6]:
+      - generic [aria-hidden] [ref=f22e7]: 澄
+      - generic [ref=f22e8]:
+        - generic [ref=f22e9]: 澄明 HR
+        - generic [ref=f22e10]: Acme China Synthetic
+      - button "收起侧边栏" [expanded] [ref=f22e11] [cursor=pointer]
+    - navigation "V1.1 功能菜单" [ref=f22e15]:
+      - link "我的工作台" [ref=f22e17] [cursor=pointer]:
+        - /url: /workspace
+      - button "仪表盘" [ref=f22e23] [cursor=pointer]
+      - generic [ref=f22e31]:
+        - button "系统管理" [expanded] [ref=f22e32] [cursor=pointer]
+        - generic [ref=f22e41]:
+          - link "登录与账号安全" [ref=f22e42] [cursor=pointer]:
+            - /url: /account
+          - link "页面目录" [ref=f22e48] [cursor=pointer]:
+            - /url: /system/pages
+          - link "消息与通知中心" [ref=f22e54] [cursor=pointer]:
+            - /url: /notifications
+          - link "日志审计与运维" [ref=f22e60] [cursor=pointer]:
+            - /url: /system/audit
+  - generic [ref=f22e66]:
+    - banner [ref=f22e67]:
+      - generic [ref=f22e68]:
+        - paragraph [ref=f22e69]: 澄明科技 · 人力资源
+        - generic [ref=f22e70]: 日志审计与运维
+      - link "查看未读公告" [ref=f22e71] [cursor=pointer]:
+        - /url: /notices
+      - button "打开账户菜单" [ref=f22e79] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f22e80]: T1
+        - generic [ref=f22e81]: t18.auditor
+    - main [ref=f22e86]:
+      - generic [ref=f22e87]:
+        - generic [ref=f22e88]:
+          - generic [ref=f22e89]:
+            - heading "日志审计与运维" [level=1] [ref=f22e90]
+            - paragraph [ref=f22e91]: 查阅登录与授权安全事件，按操作人、动作、结果与日期在服务端筛选；导出只包含白名单字段，并记录敏感访问。
+          - generic [ref=f22e92]:
+            - button "刷新" [ref=f22e93] [cursor=pointer]
+            - button "导出安全审计" [ref=f22e95] [cursor=pointer]
+        - generic [ref=f22e97]:
+          - region "系统健康" [ref=f22e98]:
+            - generic [ref=f22e99]:
+              - generic [ref=f22e100]:
+                - heading "系统健康" [level=2] [ref=f22e101]
+                - paragraph [ref=f22e102]: 健康状态来自服务端只读就绪探针，不伪造缓存、数据库或存储状态。
+              - button "刷新健康状态" [ref=f22e103] [cursor=pointer]
+            - generic [ref=f22e105]:
+              - generic [ref=f22e106]:
+                - generic [ref=f22e107]: 就绪
+                - generic [ref=f22e108]: 版本 1.0.0
+                - generic [ref=f22e109]: 探针时间 2026-11-28 20:34
+              - list [ref=f22e110]:
+                - listitem [ref=f22e111]:
+                  - generic [ref=f22e112]: 数据库
+                  - generic [ref=f22e113]: 正常
+                - listitem [ref=f22e114]:
+                  - generic [ref=f22e115]: 缓存
+                  - generic [ref=f22e116]: 正常
+                - listitem [ref=f22e117]:
+                  - generic [ref=f22e118]: 存储
+                  - generic [ref=f22e119]: 正常
+                - listitem [ref=f22e120]:
+                  - generic [ref=f22e121]: migrations
+                  - generic [ref=f22e122]: 正常
+                - listitem [ref=f22e123]:
+                  - generic [ref=f22e124]: installation
+                  - generic [ref=f22e125]: 正常
+                - listitem [ref=f22e126]:
+                  - generic [ref=f22e127]: administrator
+                  - generic [ref=f22e128]: 正常
+            - generic [ref=f22e129]:
+              - heading "备份恢复" [level=3] [ref=f22e130]
+              - paragraph [ref=f22e131]: 备份恢复由外部运维平台承担，本系统未提供备份状态 API；本页不显示“最近备份成功”等无法验证的状态。
+          - generic [ref=f22e132]:
+            - generic [ref=f22e133]:
+              - generic [ref=f22e134]:
+                - heading "事件筛选" [level=2] [ref=f22e135]
+                - paragraph [ref=f22e136]: 筛选在服务端执行，作用于全部审计记录，而不是当前页。
+              - button "清除筛选" [ref=f22e137] [cursor=pointer]
+            - generic [ref=f22e139]:
+              - generic [ref=f22e140]:
+                - generic [ref=f22e141]: 操作人用户编号
+                - textbox "操作人用户编号" [ref=f22e144]:
+                  - /placeholder: 例如 15
+              - generic [ref=f22e146]:
+                - generic [ref=f22e147]: 动作代码
+                - textbox "动作代码" [ref=f22e150]:
+                  - /placeholder: 例如 login
+              - group "按结果筛选" [ref=f22e152]:
+                - generic [ref=f22e153]: 结果
+                - generic [ref=f22e154]:
+                  - button "全部结果" [pressed] [ref=f22e155] [cursor=pointer]
+                  - button "成功" [ref=f22e156] [cursor=pointer]
+                  - button "失败" [ref=f22e157] [cursor=pointer]
+                  - button "已拒绝" [ref=f22e158] [cursor=pointer]
+              - generic [ref=f22e159]:
+                - generic [ref=f22e160]: 开始日期
+                - combobox "开始日期" [ref=f22e167]
+              - generic [ref=f22e168]:
+                - generic [ref=f22e169]: 结束日期
+                - combobox "结束日期" [ref=f22e176]
+              - button "应用服务端筛选" [ref=f22e179] [cursor=pointer]
+          - generic [ref=f22e181]:
+            - generic [ref=f22e183]:
+              - heading "安全审计事件" [level=2] [ref=f22e184]
+              - paragraph [ref=f22e185]: 服务端匹配 51 条记录；当前页 20 条。
+            - generic [ref=f22e186]:
+              - region "数据表格，可横向滚动" [ref=f22e188]:
+                - table "共 51 条记录，第 1 页，共 3 页" [ref=f22e189]:
+                  - caption [ref=f22e190]: 共 51 条记录，第 1 页，共 3 页
+                  - rowgroup [ref=f22e191]:
+                    - row [ref=f22e192]:
+                      - columnheader "发生时间" [ref=f22e193]
+                      - columnheader "操作人" [ref=f22e194]
+                      - columnheader "动作" [ref=f22e195]
+                      - columnheader "资源" [ref=f22e196]
+                      - columnheader "结果" [ref=f22e197]
+                      - columnheader "请求编号" [ref=f22e198]
+                      - columnheader "明细" [ref=f22e199]
+                  - rowgroup [ref=f22e200]:
+                    - row [ref=f22e201]:
+                      - cell "2026-11-28 20:34" [ref=f22e202]
+                      - cell "用户 9" [ref=f22e203]
+                      - cell "登录成功" [ref=f22e204]
+                      - cell "账号会话" [ref=f22e205]
+                      - cell "成功" [ref=f22e206]
+                      - cell "01M8H2CPWB52E8VFSANHM4KYPQ" [ref=f22e207]
+                      - cell [ref=f22e208]:
+                        - button "查看明细" [ref=f22e209] [cursor=pointer]
+                    - row [ref=f22e211]:
+                      - cell "2026-11-28 20:14" [ref=f22e212]
+                      - cell "用户 6" [ref=f22e213]
+                      - cell "登录成功" [ref=f22e214]
+                      - cell "账号会话" [ref=f22e215]
+                      - cell "成功" [ref=f22e216]
+                      - cell "01M8H1870Z2BDHCDB48JGX0WX5" [ref=f22e217]
+                      - cell [ref=f22e218]:
+                        - button "查看明细" [ref=f22e219] [cursor=pointer]
+                    - row [ref=f22e221]:
+                      - cell "2026-11-28 20:14" [ref=f22e222]
+                      - cell "用户 6" [ref=f22e223]
+                      - cell "登录成功" [ref=f22e224]
+                      - cell "账号会话" [ref=f22e225]
+                      - cell "成功" [ref=f22e226]
+                      - cell "01M8H1819WAG9CCQVZMW13XY48" [ref=f22e227]
+                      - cell [ref=f22e228]:
+                        - button "查看明细" [ref=f22e229] [cursor=pointer]
+                    - row [ref=f22e231]:
+                      - cell "2026-11-28 20:05" [ref=f22e232]
+                      - cell "用户 9" [ref=f22e233]
+                      - cell "登录成功" [ref=f22e234]
+                      - cell "账号会话" [ref=f22e235]
+                      - cell "成功" [ref=f22e236]
+                      - cell "01M8H0QJS7D7Y7Q7RJQWBBE6HB" [ref=f22e237]
+                      - cell [ref=f22e238]:
+                        - button "查看明细" [ref=f22e239] [cursor=pointer]
+                    - row [ref=f22e241]:
+                      - cell "2026-11-28 20:05" [ref=f22e242]
+                      - cell "用户 7" [ref=f22e243]
+                      - cell "登录成功" [ref=f22e244]
+                      - cell "账号会话" [ref=f22e245]
+                      - cell "成功" [ref=f22e246]
+                      - cell "01M8H0QF9RVKM6MQS6J5BN2B80" [ref=f22e247]
+                      - cell [ref=f22e248]:
+                        - button "查看明细" [ref=f22e249] [cursor=pointer]
+                    - row [ref=f22e251]:
+                      - cell "2026-11-28 20:05" [ref=f22e252]
+                      - cell "用户 6" [ref=f22e253]
+                      - cell "登录成功" [ref=f22e254]
+                      - cell "账号会话" [ref=f22e255]
+                      - cell "成功" [ref=f22e256]
+                      - cell "01M8H0QBTTGJMGXZ68JD70PWWM" [ref=f22e257]
+                      - cell [ref=f22e258]:
+                        - button "查看明细" [ref=f22e259] [cursor=pointer]
+                    - row [ref=f22e261]:
+                      - cell "2026-11-28 20:05" [ref=f22e262]
+                      - cell "用户 5" [ref=f22e263]
+                      - cell "登录成功" [ref=f22e264]
+                      - cell "账号会话" [ref=f22e265]
+                      - cell "成功" [ref=f22e266]
+                      - cell "01M8H0Q8BWTQPAR4FX8WHMZH7K" [ref=f22e267]
+                      - cell [ref=f22e268]:
+                        - button "查看明细" [ref=f22e269] [cursor=pointer]
+                    - row [ref=f22e271]:
+                      - cell "2026-11-28 20:03" [ref=f22e272]
+                      - cell "用户 9" [ref=f22e273]
+                      - cell "登录成功" [ref=f22e274]
+                      - cell "账号会话" [ref=f22e275]
+                      - cell "成功" [ref=f22e276]
+                      - cell "01M8H0MMKSRCHEKRKNE1YH9B2T" [ref=f22e277]
+                      - cell [ref=f22e278]:
+                        - button "查看明细" [ref=f22e279] [cursor=pointer]
+                    - row [ref=f22e281]:
+                      - cell "2026-11-28 20:03" [ref=f22e282]
+                      - cell "用户 4" [ref=f22e283]
+                      - cell "登录成功" [ref=f22e284]
+                      - cell "账号会话" [ref=f22e285]
+                      - cell "成功" [ref=f22e286]
+                      - cell "01M8H0MM9V52NER6PE7200T07R" [ref=f22e287]
+                      - cell [ref=f22e288]:
+                        - button "查看明细" [ref=f22e289] [cursor=pointer]
+                    - row [ref=f22e291]:
+                      - cell "2026-11-28 20:03" [ref=f22e292]
+                      - cell "用户 7" [ref=f22e293]
+                      - cell "登录成功" [ref=f22e294]
+                      - cell "账号会话" [ref=f22e295]
+                      - cell "成功" [ref=f22e296]
+                      - cell "01M8H0MKZCYCZ2KV313E97RNDP" [ref=f22e297]
+                      - cell [ref=f22e298]:
+                        - button "查看明细" [ref=f22e299] [cursor=pointer]
+                    - row [ref=f22e301]:
+                      - cell "2026-11-28 20:03" [ref=f22e302]
+                      - cell "用户 6" [ref=f22e303]
+                      - cell "登录成功" [ref=f22e304]
+                      - cell "账号会话" [ref=f22e305]
+                      - cell "成功" [ref=f22e306]
+                      - cell "01M8H0MKNHBBZJ3MDBAGGMDPWD" [ref=f22e307]
+                      - cell [ref=f22e308]:
+                        - button "查看明细" [ref=f22e309] [cursor=pointer]
+                    - row [ref=f22e311]:
+                      - cell "2026-11-28 20:03" [ref=f22e312]
+                      - cell "用户 5" [ref=f22e313]
+                      - cell "登录成功" [ref=f22e314]
+                      - cell "账号会话" [ref=f22e315]
+                      - cell "成功" [ref=f22e316]
+                      - cell "01M8H0MKBAPQ8NBA128W591MP7" [ref=f22e317]
+                      - cell [ref=f22e318]:
+                        - button "查看明细" [ref=f22e319] [cursor=pointer]
+                    - row [ref=f22e321]:
+                      - cell "2026-11-28 20:01" [ref=f22e322]
+                      - cell "用户 1" [ref=f22e323]
+                      - cell "角色已分配" [ref=f22e324]
+                      - cell "角色授权" [ref=f22e325]
+                      - cell "成功" [ref=f22e326]
+                      - cell "01M8H0GWWMXY2S2CFMJ38TQ9PM" [ref=f22e327]
+                      - cell [ref=f22e328]:
+                        - button "查看明细" [ref=f22e329] [cursor=pointer]
+                    - row [ref=f22e331]:
+                      - cell "2026-11-28 20:01" [ref=f22e332]
+                      - cell "用户 4" [ref=f22e333]
+                      - cell "登录成功" [ref=f22e334]
+                      - cell "账号会话" [ref=f22e335]
+                      - cell "成功" [ref=f22e336]
+                      - cell "01M8H0GQ664XN65BS11X5PYBAC" [ref=f22e337]
+                      - cell [ref=f22e338]:
+                        - button "查看明细" [ref=f22e339] [cursor=pointer]
+                    - row [ref=f22e341]:
+                      - cell "2026-11-28 20:01" [ref=f22e342]
+                      - cell "用户 7" [ref=f22e343]
+                      - cell "登录成功" [ref=f22e344]
+                      - cell "账号会话" [ref=f22e345]
+                      - cell "成功" [ref=f22e346]
+                      - cell "01M8H0GPWHXN3ABJ1N5JA2KPTH" [ref=f22e347]
+                      - cell [ref=f22e348]:
+                        - button "查看明细" [ref=f22e349] [cursor=pointer]
+                    - row [ref=f22e351]:
+                      - cell "2026-11-28 20:01" [ref=f22e352]
+                      - cell "用户 6" [ref=f22e353]
+                      - cell "登录成功" [ref=f22e354]
+                      - cell "账号会话" [ref=f22e355]
+                      - cell "成功" [ref=f22e356]
+                      - cell "01M8H0GPJ8593MA94HDEHH9861" [ref=f22e357]
+                      - cell [ref=f22e358]:
+                        - button "查看明细" [ref=f22e359] [cursor=pointer]
+                    - row [ref=f22e361]:
+                      - cell "2026-11-28 20:01" [ref=f22e362]
+                      - cell "用户 5" [ref=f22e363]
+                      - cell "登录成功" [ref=f22e364]
+                      - cell "账号会话" [ref=f22e365]
+                      - cell "成功" [ref=f22e366]
+                      - cell "01M8H0GP8EP1157QPR0GE1ADFS" [ref=f22e367]
+                      - cell [ref=f22e368]:
+                        - button "查看明细" [ref=f22e369] [cursor=pointer]
+                    - row [ref=f22e371]:
+                      - cell "2026-11-28 20:01" [ref=f22e372]
+                      - cell "用户 1" [ref=f22e373]
+                      - cell "用户已创建" [ref=f22e374]
+                      - cell "用户账号" [ref=f22e375]
+                      - cell "成功" [ref=f22e376]
+                      - cell "01M8H0GNRVBHFYTMMVTA3MMCS5" [ref=f22e377]
+                      - cell [ref=f22e378]:
+                        - button "查看明细" [ref=f22e379] [cursor=pointer]
+                    - row [ref=f22e381]:
+                      - cell "2026-11-28 20:01" [ref=f22e382]
+                      - cell "用户 1" [ref=f22e383]
+                      - cell "登录成功" [ref=f22e384]
+                      - cell "账号会话" [ref=f22e385]
+                      - cell "成功" [ref=f22e386]
+                      - cell "01M8H0GN2MP5H2YHS42FC8PWFX" [ref=f22e387]
+                      - cell [ref=f22e388]:
+                        - button "查看明细" [ref=f22e389] [cursor=pointer]
+                    - row [ref=f22e391]:
+                      - cell "2026-11-28 19:56" [ref=f22e392]
+                      - cell "用户 3" [ref=f22e393]
+                      - cell "登录成功" [ref=f22e394]
+                      - cell "账号会话" [ref=f22e395]
+                      - cell "成功" [ref=f22e396]
+                      - cell "01M8H06AWCV7340MH2GS5RSTP2" [ref=f22e397]
+                      - cell [ref=f22e398]:
+                        - button "查看明细" [ref=f22e399] [cursor=pointer]
+              - generic [ref=f22e401]:
+                - generic [ref=f22e402]: 共 51 条
+                - generic [ref=f22e403]:
+                  - generic [ref=f22e406] [cursor=pointer]:
+                    - generic:
+                      - combobox [ref=f22e408]
+                      - generic [ref=f22e409]: 20条/页
+                  - button "上一页" [disabled] [ref=f22e414]
+                  - list [ref=f22e415]:
+                    - listitem "第 1 页" [ref=f22e416]: "1"
+                    - listitem "第 2 页" [ref=f22e417] [cursor=pointer]: "2"
+                    - listitem "第 3 页" [ref=f22e418] [cursor=pointer]: "3"
+                  - button "下一页" [ref=f22e419] [cursor=pointer]
+    - contentinfo [ref=f22e420]:
+      - generic [ref=f22e421]: 澄明科技 HRMS
+      - generic [ref=f22e422]: 审计与导出操作会记录操作者、目的与时间
+      - generic [ref=f22e423]: 构建 04b874e0

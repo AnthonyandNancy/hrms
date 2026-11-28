@@ -80,6 +80,7 @@ export type OvertimeRequest = {
   attendanceOvertimeMinutes: number | null
   payrollPeriodFrozen: boolean | null
   recordedAt: string | null
+  allowedActions?: string[]
 }
 
 export type OvertimeRequestProjection = {
@@ -401,6 +402,9 @@ function normaliseOvertimeRequest(raw: RawRecord): OvertimeRequest {
         ? raw.payrollPeriodFrozen
         : null,
     recordedAt: nullableText(firstValue(raw, ['recorded_at', 'recordedAt'])),
+    allowedActions: Array.isArray(raw.allowed_actions)
+      ? raw.allowed_actions.filter((value): value is string => typeof value === 'string')
+      : [],
   }
 }
 
@@ -899,6 +903,20 @@ export async function submitOvertimeRequest(
       declared_minutes: input.declaredMinutes,
       reason: input.reason,
     },
+    { idempotencyKey },
+  )
+  return normaliseOvertimeRequest(raw)
+}
+
+export async function approveOvertimeRequest(
+  requestId: number,
+  decision: 'APPROVE' | 'REJECT',
+  comment: string,
+  idempotencyKey: string,
+): Promise<OvertimeRequest> {
+  const raw = await resourcePost<RawRecord>(
+    `/v1/time/overtime/requests/${requestId}/approve`,
+    { decision, comment },
     { idempotencyKey },
   )
   return normaliseOvertimeRequest(raw)

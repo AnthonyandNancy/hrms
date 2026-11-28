@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\IAM\Http\Controllers;
 
+use App\Modules\IAM\Authorization\PageActionCatalog;
 use App\Modules\IAM\Authorization\PermissionResourceCatalog;
 use App\Modules\IAM\Services\RolePageService;
 use App\Shared\ApiResponse;
@@ -15,6 +16,7 @@ final class RolePageController
     public function __construct(
         private readonly RolePageService $rolePages,
         private readonly PermissionResourceCatalog $catalog,
+        private readonly PageActionCatalog $actions,
     ) {}
 
     /**
@@ -26,6 +28,7 @@ final class RolePageController
     {
         return ApiResponse::ok([
             'pages' => $this->catalog->pages(),
+            'action_definitions' => $this->actions->forPageCodes($this->catalog->pageCodes()),
             'read_only' => true,
         ]);
     }

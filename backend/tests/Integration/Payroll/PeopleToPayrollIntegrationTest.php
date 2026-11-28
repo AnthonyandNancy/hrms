@@ -74,6 +74,11 @@ final class PeopleToPayrollIntegrationTest extends PayrollTestCase
             'source_hash' => hash('sha256', 'termination-proration'),
             'calculated_at' => $this->clock->now(),
         ]);
+        $this->closeTimeFact($employmentId, '2026-08', [[
+            'business_date' => '2026-08-03',
+            'scheduled_minutes' => 10_440,
+            'worked_minutes' => 5_220,
+        ]]);
 
         $gross = $this->calculateGross($base, '2026-08');
         $this->assertLessThan(1_000_000, $gross);

@@ -1,0 +1,12 @@
+id	bigint unsigned	NO	PRI	NULL	auto_increment
+principal_id	bigint unsigned	NO	MUL	NULL	
+scope	varchar(128)	NO		NULL	
+key	varchar(128)	NO		NULL	
+request_hash	varchar(64)	NO		NULL	
+status	varchar(16)	NO	MUL	NULL	
+response_status	smallint unsigned	YES		NULL	
+response_body_json	json	YES		NULL	
+resource_type	varchar(64)	YES		NULL	
+resource_id	varchar(64)	YES		NULL	
+expires_at	timestamp	NO	MUL	NULL	
+created_at	timestamp	YES		NULL	

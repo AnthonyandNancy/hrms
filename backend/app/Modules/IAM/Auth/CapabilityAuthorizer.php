@@ -78,10 +78,48 @@ final class CapabilityAuthorizer implements Authorizer
         'employee_compensation' => [
             'id' => FieldProfile::P0_PUBLIC,
             'employment_id' => FieldProfile::P0_PUBLIC,
+            'contract_version_id' => FieldProfile::P1_INTERNAL,
             'effective_from' => FieldProfile::P0_PUBLIC,
+            'effective_to' => FieldProfile::P0_PUBLIC,
+            'status' => FieldProfile::P0_PUBLIC,
             'currency' => FieldProfile::P0_PUBLIC,
             'salary_scheme_code' => FieldProfile::P1_INTERNAL,
+            'payroll_scheme_id' => FieldProfile::P1_INTERNAL,
+            'payroll_scheme_version' => FieldProfile::P1_INTERNAL,
+            'content_hash' => FieldProfile::P1_INTERNAL,
+            'supersedes_id' => FieldProfile::P0_PUBLIC,
             'base_salary_cents' => FieldProfile::P3_RESTRICTED,
+            'parameter_overrides' => FieldProfile::P3_RESTRICTED,
+        ],
+        'benefit_enrollment' => [
+            'id' => FieldProfile::P0_PUBLIC,
+            'plan_id' => FieldProfile::P0_PUBLIC,
+            'employment_id' => FieldProfile::P0_PUBLIC,
+            'base_amount_cents' => FieldProfile::P3_RESTRICTED,
+            'employee_rate' => FieldProfile::P1_INTERNAL,
+            'employer_rate' => FieldProfile::P1_INTERNAL,
+            'employee_contribution_cents' => FieldProfile::P3_RESTRICTED,
+            'employer_contribution_cents' => FieldProfile::P3_RESTRICTED,
+            'effective_from' => FieldProfile::P0_PUBLIC,
+            'effective_to' => FieldProfile::P0_PUBLIC,
+            'version' => FieldProfile::P0_PUBLIC,
+        ],
+        'benefit_transaction' => [
+            'id' => FieldProfile::P0_PUBLIC,
+            'enrollment_id' => FieldProfile::P0_PUBLIC,
+            'employment_id' => FieldProfile::P0_PUBLIC,
+            'period' => FieldProfile::P0_PUBLIC,
+            'base_amount_cents' => FieldProfile::P3_RESTRICTED,
+            'employee_amount_cents' => FieldProfile::P3_RESTRICTED,
+            'employer_amount_cents' => FieldProfile::P3_RESTRICTED,
+            'total_amount_cents' => FieldProfile::P3_RESTRICTED,
+            'payroll_run_id' => FieldProfile::P1_INTERNAL,
+            'entry_type' => FieldProfile::P0_PUBLIC,
+            'reversal_of_id' => FieldProfile::P0_PUBLIC,
+            'reversed_by_id' => FieldProfile::P0_PUBLIC,
+            'reason' => FieldProfile::P1_INTERNAL,
+            'source_hash' => FieldProfile::P1_INTERNAL,
+            'status' => FieldProfile::P0_PUBLIC,
         ],
         'salary_adjustment' => [
             'id' => FieldProfile::P0_PUBLIC,
@@ -381,6 +419,16 @@ final class CapabilityAuthorizer implements Authorizer
 
     private function matchingAnchorType(BindingGrant $grant, AnchorRef $anchor): bool
     {
+        // The installer-issued COMPANY wildcard is the explicit system
+        // administrator grant. It must cover run/case-scoped collection routes
+        // even though the route advertises a narrower anchor type; row-level
+        // access is still checked by the owning module's membership contract.
+        if (CapabilityWildcard::is($grant->capabilityCode)
+            && $grant->anchorType === Anchor::COMPANY
+            && $grant->anchorId === null) {
+            return true;
+        }
+
         return $grant->anchorType === $anchor->type;
     }
 

@@ -8,7 +8,6 @@ use App\Modules\IAM\Contracts\Principal;
 use App\Modules\Reporting\Models\ReportRun;
 use App\Shared\Authorization\Contracts\SensitiveAccessAuditor;
 use App\Shared\Authorization\FieldProfile;
-use App\Shared\Authorization\FieldSet;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Projections\ProjectionResult;
 use App\Shared\Time\Clock;
@@ -16,6 +15,10 @@ use App\Shared\Time\Clock;
 /**
  * Synchronous report query for the report screen. Export uses the same Report
  * data seam; only its field whitelist and async storage differ.
+ *
+ * Field tiers decide whether a column exists at all. Masking is not enough:
+ * a missing P2/P3 money attribute must disappear from `columns`, every row,
+ * chart data and aggregate totals, not become null or zero.
  */
 final class ReportService
 {
@@ -25,6 +28,7 @@ final class ReportService
         private readonly ProjectionBuilder $projections,
         private readonly Clock $clock,
         private readonly SensitiveAccessAuditor $sensitiveAudit,
+        private readonly FieldTierResolver $fieldTiers,
     ) {}
 
     /**
@@ -38,14 +42,9 @@ final class ReportService
     {
         $this->projections->ensure($asOf);
         $definition = $this->definition($code);
-        $fields = (array) $definition['fields'];
-        $visible = $this->fieldSet($fields);
+        $fields = $this->visibleFields($principal, (array) $definition['fields'], $asOf);
         $result = $this->rows($principal, $code, $asOf, $filters, $fields);
-        $projected = [];
-
-        foreach ($result['items'] as $row) {
-            $projected[] = $visible->mask($row);
-        }
+        $projected = $result['items'];
 
         $run = ReportRun::query()->create([
             'definition_code' => (string) $definition['code'],
@@ -64,16 +63,12 @@ final class ReportService
             'runId' => (int) $run->id,
             'definitionCode' => (string) $definition['code'],
             'title' => (string) $definition['name'],
-            'columns' => array_map(static fn (array $field): array => [
-                'key' => (string) $field['key'],
-                'label' => (string) $field['label'],
-                'profile' => (string) $field['profile'],
-            ], $fields),
-            'chart' => $this->chart($code, $projected, $fields),
+            'columns' => $this->columns($fields),
+            'chart' => $this->chart($projected, $fields),
             'items' => $projected,
             'page' => 1,
             'page_size' => max(1, count($projected)),
-            'total' => count($projected),
+            'total' => $this->total((string) $definition['code'], $projected, $fields),
             'as_of' => $asOf,
             'freshness' => ProjectionResult::FRESHNESS_MATERIALIZED,
             'source_hash' => $result['source_hash'],
@@ -108,7 +103,7 @@ final class ReportService
             $byKey[(string) $field['key']] = $field;
         }
 
-        $fields = [];
+        $visibleKeys = array_column($this->visibleFields($principal, $catalogFields, $asOf, 'reporting.export'), 'key');
 
         foreach ($requestedFields as $key) {
             $field = $byKey[$key] ?? null;
@@ -123,25 +118,54 @@ final class ReportService
                 throw new ValidationException(['fields' => ["Field {$key} is restricted and can never be exported."]], 'The given data was invalid.', ['reason' => 'EXPORT_FIELD_HIDDEN']);
             }
 
-            $fields[] = $field;
+            if (! in_array($key, $visibleKeys, true)) {
+                throw new ValidationException(
+                    ['fields' => ["Field {$key} is not covered by the current field authorization."]],
+                    'The given data was invalid.',
+                    ['reason' => 'EXPORT_FIELD_FORBIDDEN'],
+                );
+            }
+        }
+
+        // Preserve caller order while de-duplicating.
+        $fields = [];
+        foreach (array_values(array_unique($requestedFields)) as $key) {
+            $fields[] = $byKey[$key];
         }
 
         $result = $this->rows($principal, $code, $asOf, $filters, $fields);
-        $visible = $this->fieldSet($fields, exportUnlocked: true);
-        $projected = [];
 
-        foreach ($result['items'] as $row) {
-            $projected[] = $visible->mask($row);
-        }
-
-        $this->auditSensitive($principal, null, $fields, $projected, $code);
+        $this->auditSensitive($principal, null, $fields, $result['items'], $code);
 
         return [
             'definition' => $definition,
             'fields' => $fields,
-            'rows' => $projected,
+            'rows' => $result['items'],
             'source_hash' => $result['source_hash'],
         ];
+    }
+
+    /**
+     * Return only fields that exist for the caller's live tier. P0 always
+     * exists; P1+ require a grant at or above the field profile.
+     *
+     * @param  list<array<string, mixed>>  $fields
+     * @return list<array<string, mixed>>
+     */
+    public function visibleFields(Principal $principal, array $fields, string $asOf, string $capability = 'reporting.report.read'): array
+    {
+        $max = $this->fieldTiers->maxProfile($principal, $capability, $asOf);
+        $visible = [];
+
+        foreach ($fields as $field) {
+            $profile = FieldProfile::tryFrom((string) ($field['profile'] ?? '')) ?? FieldProfile::P3_RESTRICTED;
+
+            if ($this->fieldTiers->covers($profile, $max)) {
+                $visible[] = $field;
+            }
+        }
+
+        return $visible;
     }
 
     /**
@@ -159,20 +183,6 @@ final class ReportService
         }
 
         throw new ValidationException(['definition_code' => ['Unknown report definition.']], 'The given data was invalid.', ['reason' => 'UNKNOWN_REPORT_DEFINITION']);
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $fields
-     */
-    private function fieldSet(array $fields, bool $exportUnlocked = false): FieldSet
-    {
-        $profiles = [];
-
-        foreach ($fields as $field) {
-            $profiles[(string) $field['key']] = FieldProfile::from((string) $field['profile']);
-        }
-
-        return new FieldSet($profiles, exportUnlocked: $exportUnlocked);
     }
 
     /**
@@ -203,7 +213,7 @@ final class ReportService
             $metric = $this->metricForDefinition($code);
         }
 
-        $result = $this->metrics->query($principal, $metric, $asOf, $filters);
+        $result = $this->metrics->query($principal, $metric, $asOf, $filters, requireMoney: false);
 
         if ($result['status'] !== 'AVAILABLE') {
             throw new \App\Shared\Exceptions\ServiceUnavailableException((string) ($result['reason'] ?? 'This report is unavailable.'));
@@ -254,6 +264,14 @@ final class ReportService
      */
     private function cell(array $item, string $key): string|int|null
     {
+        if ($key === 'employee') {
+            return isset($item['primary']) ? (string) $item['primary'] : null;
+        }
+
+        if ($key === 'currency_code') {
+            return isset($item['currency_code']) ? (string) $item['currency_code'] : null;
+        }
+
         $value = $item[$key] ?? $item['primary'] ?? null;
 
         if ($value === null) {
@@ -268,20 +286,27 @@ final class ReportService
     }
 
     /**
+     * One chart entry per aggregate row. Money is never placed inside a chart
+     * when its field is not part of the surviving column set.
+     *
      * @param  list<array<string, mixed>>  $rows
      * @param  list<array<string, mixed>>  $fields
      * @return list<array{label: string, value: int}>
      */
-    private function chart(string $code, array $rows, array $fields): array
+    private function chart(array $rows, array $fields): array
     {
         if ($rows === []) {
             return [];
         }
 
+        $keys = array_column($fields, 'key');
+        $labelKey = in_array('employee', $keys, true)
+            ? 'employee'
+            : (in_array('primary', $keys, true) ? 'primary' : (string) ($keys[0] ?? ''));
         $charts = [];
 
         foreach (array_slice($rows, 0, 20) as $row) {
-            $label = (string) ($row['primary'] ?? $row[array_key_first($row)] ?? '');
+            $label = (string) ($row[$labelKey] ?? '');
 
             if ($label === '') {
                 continue;
@@ -291,6 +316,43 @@ final class ReportService
         }
 
         return $charts;
+    }
+
+    /**
+     * Aggregate only over money that survived the field tier. When the caller
+     * cannot see the money column, the total is unavailable (0) rather than a
+     * disguised sum of another row count.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @param  list<array<string, mixed>>  $fields
+     */
+    private function total(string $code, array $rows, array $fields): int
+    {
+        $keys = array_column($fields, 'key');
+
+        if ($code === 'PAYROLL_COST') {
+            return in_array('employer_cost_cents', $keys, true)
+                ? array_sum(array_map(
+                    static fn (array $row): int => (int) ($row['employer_cost_cents'] ?? 0),
+                    $rows,
+                ))
+                : 0;
+        }
+
+        return count($rows);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $fields
+     * @return list<array{key: string, label: string, profile: string}>
+     */
+    private function columns(array $fields): array
+    {
+        return array_map(static fn (array $field): array => [
+            'key' => (string) $field['key'],
+            'label' => (string) $field['label'],
+            'profile' => (string) $field['profile'],
+        ], $fields);
     }
 
     /**

@@ -99,7 +99,20 @@ final class ApprovalService
     {
         return DB::transaction(function () use ($runId, $actorUserId, $reason): PayrollRun {
             $run = $this->stateMachine->lockRun($runId);
+            $status = $run->status instanceof PayrollRunStatus ? $run->status : PayrollRunStatus::from((string) $run->status);
+
+            if ((string) $run->payslip_status === 'PUBLISHED') {
+                return $run;
+            }
+
             $this->assertSod($run, $actorUserId, 'publish');
+
+            if (! in_array($status, [PayrollRunStatus::APPROVED, PayrollRunStatus::PAID], true)) {
+                throw new ConflictException('Only an approved or disbursed run can publish payslips.', [
+                    'reason' => 'RUN_NOT_PUBLISHABLE',
+                    'status' => $status->value,
+                ]);
+            }
 
             // Fold YTD and stamp payslips while the run is still APPROVED so
             // the DB immutability triggers on PUBLISHED rows are not tripped.
@@ -120,23 +133,28 @@ final class ApprovalService
                 ->whereNull('published_at')
                 ->update(['published_at' => $now]);
 
-            $run = $this->stateMachine->transition(
-                $run,
-                PayrollRunStatus::PUBLISHED,
-                [
-                    'published_by' => $actorUserId,
-                    'published_at' => $now,
-                ],
-            );
+            $columns = [
+                'payslip_status' => 'PUBLISHED',
+                'published_by' => $actorUserId,
+                'published_at' => $now,
+            ];
+
+            if ($status === PayrollRunStatus::APPROVED) {
+                $run = $this->stateMachine->transition($run, PayrollRunStatus::PUBLISHED, $columns);
+            } else {
+                $run->forceFill($columns)->save();
+                $run = $run->refresh();
+            }
 
             $this->audit->record(
                 actorUserId: $actorUserId,
                 action: 'payroll.run.published',
                 aggregateType: 'payroll_run',
                 aggregateId: $runId,
-                before: ['status' => PayrollRunStatus::APPROVED->value],
+                before: ['status' => $status->value],
                 after: [
-                    'status' => PayrollRunStatus::PUBLISHED->value,
+                    'status' => $run->status->value,
+                    'payslip_status' => 'PUBLISHED',
                     'gross_cents' => (int) $run->gross_cents,
                     'net_cents' => (int) $run->net_cents,
                     'reason_present' => trim($reason) !== '',
@@ -160,31 +178,48 @@ final class ApprovalService
                 ? $run->status
                 : PayrollRunStatus::from((string) $run->status);
 
-            if ($status !== PayrollRunStatus::PUBLISHED) {
-                throw new ConflictException('Only a published run can be marked paid.', [
+            if ((string) $run->disbursement_status === 'REGISTERED') {
+                return $run;
+            }
+
+            if (! in_array($status, [PayrollRunStatus::APPROVED, PayrollRunStatus::PUBLISHED, PayrollRunStatus::PAID], true)) {
+                throw new ConflictException('Only an approved or published run can register disbursement.', [
                     'reason' => 'RUN_NOT_PAYABLE',
                     'status' => $status->value,
                 ]);
             }
+
+            $now = $this->clock->now();
+            $columns = [
+                'disbursement_status' => 'REGISTERED',
+                'disbursement_reference' => trim($reference) !== '' ? mb_substr(trim($reference), 0, 160) : null,
+                'disbursement_registered_by' => $actorUserId,
+                'disbursement_registered_at' => $now,
+                'paid_by' => $actorUserId,
+                'paid_at' => $now,
+            ];
 
             $this->audit->record(
                 actorUserId: $actorUserId,
                 action: 'payroll.run.paid',
                 aggregateType: 'payroll_run',
                 aggregateId: $runId,
-                before: ['status' => PayrollRunStatus::PUBLISHED->value],
+                before: ['status' => $status->value],
                 after: [
-                    'status' => PayrollRunStatus::PAID->value,
+                    'status' => $status === PayrollRunStatus::APPROVED ? PayrollRunStatus::PAID->value : $status->value,
+                    'disbursement_status' => 'REGISTERED',
                     'reference_present' => trim($reference) !== '',
                     'manual_confirmation_present' => mb_strlen(trim($manualConfirmationReason)) >= 10,
                 ],
             );
 
-            return $this->stateMachine->transition(
-                $run,
-                PayrollRunStatus::PAID,
-                ['paid_by' => $actorUserId, 'paid_at' => $this->clock->now()],
-            );
+            if ($status === PayrollRunStatus::PAID) {
+                $run->forceFill($columns)->save();
+
+                return $run->refresh();
+            }
+
+            return $this->stateMachine->transition($run, PayrollRunStatus::PAID, $columns);
         });
     }
 
@@ -192,6 +227,18 @@ final class ApprovalService
     {
         return DB::transaction(function () use ($runId, $actorUserId): PayrollRun {
             $run = $this->stateMachine->lockRun($runId);
+            $status = $run->status instanceof PayrollRunStatus ? $run->status : PayrollRunStatus::from((string) $run->status);
+
+            if (! in_array($status, [PayrollRunStatus::PUBLISHED, PayrollRunStatus::PAID], true)
+                || (string) $run->payslip_status !== 'PUBLISHED'
+                || (string) $run->disbursement_status !== 'REGISTERED') {
+                throw new ConflictException('Close requires both payslip publication and disbursement registration.', [
+                    'reason' => 'RUN_CLOSE_PREREQUISITES_MISSING',
+                    'status' => $status->value,
+                    'payslip_status' => (string) $run->payslip_status,
+                    'disbursement_status' => (string) $run->disbursement_status,
+                ]);
+            }
 
             $run = $this->stateMachine->transition(
                 $run,
@@ -204,7 +251,7 @@ final class ApprovalService
                 action: 'payroll.run.closed',
                 aggregateType: 'payroll_run',
                 aggregateId: $runId,
-                before: ['status' => PayrollRunStatus::PAID->value],
+                before: ['status' => $status->value],
                 after: ['status' => PayrollRunStatus::CLOSED->value],
             );
 

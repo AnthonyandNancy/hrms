@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Payroll\Services;
 
 use App\Modules\Organization\Contracts\CompanyProfileReader;
+use App\Modules\Payroll\Contracts\BenefitPayrollInputDirectory;
+use App\Modules\Payroll\Contracts\CompensationVersionDirectory;
+use App\Modules\Payroll\Contracts\PerformanceBonusDirectory;
 use App\Modules\Payroll\Domain\AttendanceSummary;
 use App\Modules\Payroll\Enums\PayrollRunStatus;
 use App\Modules\Payroll\Models\PayrollAdjustment;
@@ -33,6 +36,9 @@ final class SnapshotService
         private readonly PeopleDirectory $people,
         private readonly CompanyProfileReader $company,
         private readonly TaxParameterResolver $parameters,
+        private readonly CompensationVersionDirectory $compensations,
+        private readonly BenefitPayrollInputDirectory $benefits,
+        private readonly PerformanceBonusDirectory $performanceBonuses,
     ) {}
 
     /**
@@ -229,17 +235,95 @@ final class SnapshotService
      */
     public function buildPayload(PayrollRun $run, PayrollScheme $scheme, int $employmentId, string $currency): array
     {
-        $attendance = $this->time->attendanceForPeriod($employmentId, (string) $run->period);
-        $terms = $this->terms->termsAsOf($employmentId, $this->dateOnly($run->earning_period_end));
-        $adjustments = PayrollAdjustment::query()
-            ->where(function ($query) use ($run): void {
-                $query->where('run_id', $run->id)->orWhere(function ($inner) use ($run): void {
-                    $inner->whereNull('run_id')->where('effective_period', (string) $run->period);
-                });
-            })
-            ->where('employment_id', $employmentId)
-            ->orderBy('id')
-            ->get();
+        $closedFact = $this->time->closedFactForPeriod($employmentId, (string) $run->period);
+        $attendance = null;
+        $blockers = [];
+        $asOf = $this->dateOnly($run->earning_period_end);
+        $compensation = $this->compensations->effectiveForEmployment($employmentId, $asOf);
+        $compensationSegments = $this->compensations->segmentsForPeriod(
+            $employmentId,
+            $this->dateOnly($run->earning_period_start),
+            $this->dateOnly($run->earning_period_end),
+        );
+        $terms = $this->terms->termsAsOf($employmentId, $asOf);
+        $blockers = array_merge($blockers, $this->compensationSegmentBlockers(
+            $compensationSegments,
+            $this->dateOnly($run->earning_period_start),
+            $this->dateOnly($run->earning_period_end),
+            $terms === null ? null : $terms->effectiveFrom,
+            $terms === null ? null : $terms->effectiveTo,
+            $employmentId,
+            (string) $run->period,
+        ));
+        $resolvedScheme = $scheme;
+        $publishedRules = [];
+
+        if ($compensation !== null && $compensation['payroll_scheme_id'] !== null) {
+            $candidate = PayrollScheme::query()
+                ->whereKey((int) $compensation['payroll_scheme_id'])
+                ->with('items')
+                ->first();
+
+            if ($candidate instanceof PayrollScheme) {
+                $resolvedScheme = $candidate;
+            }
+        }
+        $isCorrection = ($run->run_type instanceof \App\Modules\Payroll\Enums\PayrollRunType
+            ? $run->run_type
+            : \App\Modules\Payroll\Enums\PayrollRunType::from((string) $run->run_type)) === \App\Modules\Payroll\Enums\PayrollRunType::CORRECTION;
+
+        if ($isCorrection && $run->correction_of_run_id !== null) {
+            $original = PayrollRun::query()->whereKey((int) $run->correction_of_run_id)->first();
+            $priorCorrectionIds = PayrollRun::query()
+                ->where('correction_of_run_id', (int) $run->correction_of_run_id)
+                ->whereIn('status', ['PUBLISHED', 'PAID', 'CLOSED'])
+                ->pluck('id')
+                ->map(static fn (mixed $id): int => (int) $id)
+                ->all();
+            $chainRunIds = array_values(array_unique([
+                ...($original === null ? [] : [(int) $original->id]),
+                ...$priorCorrectionIds,
+                (int) $run->id,
+            ]));
+            $periodBounds = $original === null
+                ? [(string) $run->period, (string) $run->period]
+                : [min((string) $original->period, (string) $run->period), max((string) $original->period, (string) $run->period)];
+
+            $adjustments = PayrollAdjustment::query()
+                ->where('employment_id', $employmentId)
+                ->where(function ($query) use ($chainRunIds, $periodBounds): void {
+                    $query->whereIn('run_id', $chainRunIds)
+                        ->orWhere(function ($inner) use ($periodBounds): void {
+                            $inner->whereNull('run_id')
+                                ->whereBetween('effective_period', $periodBounds);
+                        });
+                })
+                ->orderBy('effective_period')
+                ->orderBy('id')
+                ->get();
+        } else {
+            $adjustments = PayrollAdjustment::query()
+                ->where(function ($query) use ($run): void {
+                    $query->where('run_id', $run->id)->orWhere(function ($inner) use ($run): void {
+                        $inner->whereNull('run_id')->where('effective_period', (string) $run->period);
+                    });
+                })
+                ->where('employment_id', $employmentId)
+                ->orderBy('id')
+                ->get();
+        }
+
+        $schemeItemIds = $resolvedScheme->items->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all();
+        if ($schemeItemIds !== []) {
+            $publishedRules = \App\Modules\Payroll\Models\PayrollRuleVersion::query()
+                ->whereIn('scheme_item_id', $schemeItemIds)
+                ->where('status', 'PUBLISHED')
+                ->orderByDesc('version')
+                ->get()
+                ->unique('scheme_item_id')
+                ->keyBy('scheme_item_id')
+                ->all();
+        }
 
         $year = (int) substr((string) $run->period, 0, 4);
         $ytd = PayrollYtd::query()
@@ -251,23 +335,59 @@ final class SnapshotService
         $siVersion = $this->parameters->versionFor('SOCIAL_INSURANCE', (string) $run->cutoff_at);
         $hfVersion = $this->parameters->versionFor('HOUSING_FUND', (string) $run->cutoff_at);
 
-        $attendanceSummary = $attendance === null
-            ? ['scheduled_minutes' => 0, 'worked_minutes' => 0, 'paid_leave_minutes' => 0, 'unpaid_leave_minutes' => 0, 'overtime_minutes' => 0, 'source_hash' => hash('sha256', 'MISSING|'.$employmentId.'|'.$run->period)]
-            : [
-                'from' => $attendance->from,
-                'to' => $attendance->to,
-                'scheduled_minutes' => $attendance->scheduledMinutes,
-                'worked_minutes' => $attendance->workedMinutes,
-                'paid_leave_minutes' => $attendance->paidLeaveMinutes,
-                'unpaid_leave_minutes' => $attendance->unpaidLeaveMinutes,
-                'overtime_minutes' => $attendance->overtimeMinutes,
-                'leave_consumption' => $attendance->leaveConsumption,
-                'source_hash' => $attendance->sourceHash,
+        if ($closedFact !== null) {
+            $attendanceSummary = [
+                'from' => $closedFact->from,
+                'to' => $closedFact->to,
+                'scheduled_minutes' => $closedFact->scheduledMinutes,
+                'worked_minutes' => $closedFact->workedMinutes,
+                'paid_leave_minutes' => $closedFact->paidLeaveMinutes,
+                'partial_leave_minutes' => $closedFact->partialLeaveMinutes,
+                'unpaid_leave_minutes' => $closedFact->unpaidLeaveMinutes,
+                'overtime_minutes' => $closedFact->overtimePayMinutes,
+                'overtime_timeoff_minutes' => $closedFact->overtimeTimeoffMinutes,
+                'travel_minutes' => $closedFact->travelMinutes,
+                'source_type' => 'time_closed_fact',
+                'fact_version' => $closedFact->factVersion,
+                'fact_version_id' => $closedFact->factVersionId,
+                'source_hash' => $closedFact->sourceHash,
             ];
+        } else {
+            // No Time module data is a legitimate full-month salary case. Once
+            // Time has evidence for the period, the absence of a closed fact is
+            // a payroll blocker; live attendance may be shown only as evidence,
+            // never treated as frozen payroll input.
+            $attendance = $this->time->attendanceForPeriod($employmentId, (string) $run->period);
+            $hasTimeEvidence = $this->time->hasRecordedAttendance($employmentId, (string) $run->period);
+
+            if ($hasTimeEvidence) {
+                $blockers[] = [
+                    'code' => 'CLOSED_TIME_FACT_MISSING',
+                    'message' => 'The payroll period has Time evidence but no closed Time fact version.',
+                    'employment_id' => $employmentId,
+                    'period' => (string) $run->period,
+                ];
+            }
+
+            $attendanceSummary = $attendance === null
+                ? ['scheduled_minutes' => 0, 'worked_minutes' => 0, 'paid_leave_minutes' => 0, 'unpaid_leave_minutes' => 0, 'overtime_minutes' => 0, 'source_type' => 'full_month', 'source_hash' => hash('sha256', 'FULL-MONTH|'.$employmentId.'|'.$run->period)]
+                : [
+                    'from' => $attendance->from,
+                    'to' => $attendance->to,
+                    'scheduled_minutes' => $attendance->scheduledMinutes,
+                    'worked_minutes' => $attendance->workedMinutes,
+                    'paid_leave_minutes' => $attendance->paidLeaveMinutes,
+                    'unpaid_leave_minutes' => $attendance->unpaidLeaveMinutes,
+                    'overtime_minutes' => $attendance->overtimeMinutes,
+                    'leave_consumption' => $attendance->leaveConsumption,
+                    'source_type' => $hasTimeEvidence ? 'live_fallback' : 'full_month',
+                    'source_hash' => $attendance->sourceHash,
+                ];
+        }
 
         $payload = [
-            'schema_version' => 1,
-            'currency' => $currency,
+            'schema_version' => 2,
+            'currency' => $compensation['currency'] ?? $currency,
             'employment_id' => $employmentId,
             'period' => (string) $run->period,
             'earning_period_start' => $this->dateOnly($run->earning_period_start),
@@ -276,6 +396,11 @@ final class SnapshotService
             'pay_date' => $this->dateOnly($run->pay_date),
             'cutoff_at' => (string) $run->cutoff_at,
             'attendance' => $attendanceSummary,
+            'blockers' => $blockers,
+            'compensation' => $compensation,
+            'compensation_segments' => $compensationSegments,
+            'benefits' => $this->benefits->frozenForPeriod($employmentId, (string) $run->period),
+            'performance_bonuses' => $this->performanceBonuses->frozenForPeriod($employmentId, (string) $run->period),
             'terms' => $terms === null ? null : [
                 'terms_id' => $terms->id,
                 'version' => $terms->version,
@@ -286,15 +411,16 @@ final class SnapshotService
                 'salary_scheme_code' => $terms->salarySchemeCode,
             ],
             'scheme' => [
-                'scheme_id' => (int) $scheme->id,
-                'version' => (int) $scheme->version,
-                'code' => (string) $scheme->code,
-                'currency' => (string) $scheme->currency,
-                'proration_divisor' => (string) $scheme->proration_divisor,
-                'rounding_mode' => (string) $scheme->rounding_mode,
-                'overtime_multiplier' => (string) $scheme->overtime_multiplier,
-                'base_salary_cents' => (int) $scheme->base_salary_cents,
-                'items' => $scheme->items->map(static fn ($item): array => [
+                'scheme_id' => (int) $resolvedScheme->id,
+                'version' => (int) $resolvedScheme->version,
+                'code' => (string) $resolvedScheme->code,
+                'currency' => (string) $resolvedScheme->currency,
+                'proration_divisor' => (string) $resolvedScheme->proration_divisor,
+                'rounding_mode' => (string) $resolvedScheme->rounding_mode,
+                'overtime_multiplier' => (string) $resolvedScheme->overtime_multiplier,
+                'allow_negative_net' => (bool) $resolvedScheme->allow_negative_net,
+                'base_salary_cents' => (int) $resolvedScheme->base_salary_cents,
+                'items' => $resolvedScheme->items->map(static fn ($item): array => [
                     'item_code' => (string) $item->item_code,
                     'label' => (string) $item->label,
                     'category' => (string) $item->category,
@@ -302,6 +428,12 @@ final class SnapshotService
                     'amount_cents' => (int) $item->amount_cents,
                     'rate_scaled' => $item->rate_scaled !== null ? (int) $item->rate_scaled : null,
                     'basis' => (string) $item->basis,
+                    'formula_json' => $item->formula_json,
+                    'rule_version' => isset($publishedRules[(int) $item->id]) ? (int) $publishedRules[(int) $item->id]->version : null,
+                    'rule_hash' => isset($publishedRules[(int) $item->id]) ? (string) $publishedRules[(int) $item->id]->hash : null,
+                    'rule_engine_version' => isset($publishedRules[(int) $item->id]) ? (string) $publishedRules[(int) $item->id]->engine_version : null,
+                    'rule_unit' => isset($publishedRules[(int) $item->id]) ? (string) $publishedRules[(int) $item->id]->unit : null,
+                    'rule_ast' => isset($publishedRules[(int) $item->id]) ? $publishedRules[(int) $item->id]->ast_json : null,
                     'sort_order' => (int) $item->sort_order,
                     'taxable' => (bool) $item->taxable,
                 ])->values()->all(),
@@ -330,6 +462,73 @@ final class SnapshotService
         ];
 
         return $payload;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $segments
+     * @return list<array<string, mixed>>
+     */
+    private function compensationSegmentBlockers(
+        array $segments,
+        string $periodStart,
+        string $periodEnd,
+        ?string $termsFrom,
+        ?string $termsTo,
+        int $employmentId,
+        string $period,
+    ): array {
+        if ($segments === []) {
+            return [];
+        }
+
+        $expectedStart = $periodStart;
+        if ($termsFrom !== null && $termsFrom > $expectedStart && $termsFrom <= $periodEnd) {
+            $expectedStart = $termsFrom;
+        }
+
+        $expectedEnd = $periodEnd;
+        if ($termsTo !== null && $termsTo < $expectedEnd) {
+            $expectedEnd = $termsTo;
+        }
+
+        $overlap = false;
+        $previousTo = null;
+
+        foreach ($segments as $segment) {
+            $from = (string) ($segment['segment_from'] ?? '');
+            $to = (string) ($segment['segment_to'] ?? '');
+
+            if ($previousTo !== null && $from <= $previousTo) {
+                $overlap = true;
+            }
+
+            $previousTo = $to;
+        }
+
+        if ($overlap) {
+            return [[
+                'code' => 'COMPENSATION_SEGMENT_OVERLAP',
+                'message' => 'Execution compensation segments overlap; payroll cannot choose a single rate.',
+                'employment_id' => $employmentId,
+                'period' => $period,
+            ]];
+        }
+
+        $firstFrom = (string) ($segments[0]['segment_from'] ?? '');
+        $lastTo = (string) ($segments[count($segments) - 1]['segment_to'] ?? '');
+
+        if ($firstFrom > $expectedStart || $lastTo < $expectedEnd) {
+            return [[
+                'code' => 'COMPENSATION_SEGMENT_GAP',
+                'message' => 'Execution compensation segments do not cover the whole payable period.',
+                'employment_id' => $employmentId,
+                'period' => $period,
+                'expected_from' => $expectedStart,
+                'expected_to' => $expectedEnd,
+            ]];
+        }
+
+        return [];
     }
 
     private function dateOnly(mixed $value): string
@@ -381,11 +580,11 @@ final class SnapshotService
     }
 
     /**
-     * @return array{employment_id: int, scheduled_minutes: int, worked_minutes: int, paid_leave_minutes: int, unpaid_leave_minutes: int, overtime_minutes: int}
+     * @return array{employment_id: int, scheduled_minutes: int, worked_minutes: int, paid_leave_minutes: int, unpaid_leave_minutes: int, overtime_minutes: int, travel_minutes: int}
      */
     /**
      * @param  array<string, mixed>  $payload
-     * @return array{employment_id: int, scheduled_minutes: int, worked_minutes: int, paid_leave_minutes: int, unpaid_leave_minutes: int, overtime_minutes: int}
+     * @return array{employment_id: int, scheduled_minutes: int, worked_minutes: int, paid_leave_minutes: int, unpaid_leave_minutes: int, overtime_minutes: int, travel_minutes: int}
      */
     public function attendanceValues(array $payload): array
     {
@@ -398,6 +597,7 @@ final class SnapshotService
             'paid_leave_minutes' => (int) ($attendance['paid_leave_minutes'] ?? 0),
             'unpaid_leave_minutes' => (int) ($attendance['unpaid_leave_minutes'] ?? 0),
             'overtime_minutes' => (int) ($attendance['overtime_minutes'] ?? 0),
+            'travel_minutes' => (int) ($attendance['travel_minutes'] ?? 0),
         ];
     }
 
@@ -414,6 +614,7 @@ final class SnapshotService
             paidLeaveMinutes: $values['paid_leave_minutes'],
             unpaidLeaveMinutes: $values['unpaid_leave_minutes'],
             overtimeMinutes: $values['overtime_minutes'],
+            travelMinutes: $values['travel_minutes'],
         );
     }
 }

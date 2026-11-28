@@ -14,6 +14,7 @@ use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\BusinessDate;
 use App\Shared\Time\Clock;
+use App\Shared\Time\CompanyBusinessDate;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -38,6 +39,7 @@ final class LeaveRequestService
         private readonly LeavePolicyService $policies,
         private readonly PayrollFreezeGuard $freezeGuard,
         private readonly AuditRecorder $audit,
+        private readonly CompanyBusinessDate $businessDates,
     ) {}
 
     /**
@@ -210,6 +212,7 @@ final class LeaveRequestService
 
         $type = $this->type($leaveTypeCode);
         $policy = $this->policy($type, $fromDate, false);
+        $this->assertPayrollTreatmentResolved($policy);
         $workingDays = $this->workingDays($fromDate, $toDate);
         $ruleConflicts = $this->ruleConflicts(
             policy: $policy,
@@ -247,6 +250,10 @@ final class LeaveRequestService
             $onBehalf,
             $orgUnitId,
         ): array {
+            foreach (PayrollFreezeGuard::periodsForRange($fromDate, $toDate) as $period) {
+                $this->freezeGuard->lockAndAssertOpen($period);
+            }
+
             // Serialize requests for one leave account before checking the
             // overlap window. The projection lock alone is insufficient when
             // the caller has not yet created a row.
@@ -285,7 +292,7 @@ final class LeaveRequestService
                 businessDate: $fromDate,
             );
 
-            $postedOn = $this->clock->now()->toDateString();
+            $postedOn = $this->businessDates->today()->value();
 
             $this->ledger->reserve(
                 employmentId: $employmentId,
@@ -405,42 +412,54 @@ final class LeaveRequestService
                 throw new NotFoundOrForbiddenException;
             }
 
-            if ($shouldRevoke) {
-                $this->freezeGuard->assertNotFrozen(
-                    (int) $projection->employment_id,
-                    PayrollFreezeGuard::periodsForRange(
-                        $projection->from_date->format('Y-m-d'),
-                        $projection->to_date->format('Y-m-d'),
-                    ),
-                );
+            $periods = PayrollFreezeGuard::periodsForRange(
+                $projection->from_date->format('Y-m-d'),
+                $projection->to_date->format('Y-m-d'),
+            );
+
+            foreach ($periods as $period) {
+                $this->freezeGuard->lockAndAssertOpen($period);
             }
 
-            $businessDate = $this->clock->now()->toDateString();
+            if ($shouldRevoke) {
+                $this->freezeGuard->assertNotFrozen((int) $projection->employment_id, $periods);
+            }
+
+            $businessDate = $this->businessDates->today()->value();
             $minutes = (int) $projection->minutes;
             $released = 0;
             $reversed = 0;
 
             if ($shouldRevoke) {
-                $consumed = $this->consumedMinutes($projection);
+                $reversed = $this->approvedEffectReversal(
+                    projection: $projection,
+                    reason: $reason !== '' ? $reason : 'Leave revoked',
+                    caseStatus: $case !== null ? (string) $case->status : null,
+                    authorizingCapability: $managerOverride ? 'time.leave.admin' : null,
+                );
 
-                if ($consumed > 0) {
-                    $this->ledger->reverse(
-                        employmentId: (int) $projection->employment_id,
-                        leaveTypeId: (int) $projection->leave_type_id,
-                        minutes: $consumed,
-                        businessDate: $businessDate,
-                        sourceType: 'LEAVE_REVOKE',
-                        sourceId: (string) $caseId,
-                        reason: $reason !== '' ? $reason : 'Leave revoked',
-                        targetAccount: 'CONSUME',
-                        caseId: $caseId,
-                    );
-                    $reversed = $consumed;
+                if ($reversed === 0) {
+                    $consumed = $this->consumedMinutes($projection);
+
+                    if ($consumed > 0) {
+                        $this->ledger->reverse(
+                            employmentId: (int) $projection->employment_id,
+                            leaveTypeId: (int) $projection->leave_type_id,
+                            minutes: $consumed,
+                            businessDate: $businessDate,
+                            sourceType: 'LEAVE_REVOKE',
+                            sourceId: (string) $caseId,
+                            reason: $reason !== '' ? $reason : 'Leave revoked',
+                            targetAccount: 'CONSUME',
+                            caseId: $caseId,
+                        );
+                        $reversed = $consumed;
+                    }
                 }
 
                 // If an approval consumed the reservation, CONSUME already
                 // released it. Only release a still-outstanding hold.
-                if ($consumed === 0) {
+                if ($this->consumedMinutes($projection) === 0) {
                     $this->ledger->release(
                         employmentId: (int) $projection->employment_id,
                         leaveTypeId: (int) $projection->leave_type_id,
@@ -455,7 +474,12 @@ final class LeaveRequestService
                 }
 
                 if ($case !== null && in_array($case->status, ['SUBMITTED', 'IN_REVIEW', 'DRAFT'], true)) {
-                    $this->workflow->requestCancel($caseId, $actorUserId, $reason);
+                    $this->workflow->requestCancel(
+                        $caseId,
+                        $actorUserId,
+                        $reason,
+                        $managerOverride ? 'time.leave.admin' : null,
+                    );
                 }
 
                 $projection->forceFill(['state' => 'REVOKED', 'updated_at' => $this->clock->now()])->save();
@@ -474,7 +498,12 @@ final class LeaveRequestService
                 $released = $minutes;
 
                 if ($case !== null && in_array($case->status, ['SUBMITTED', 'IN_REVIEW', 'DRAFT'], true)) {
-                    $this->workflow->requestCancel($caseId, $actorUserId, $reason);
+                    $this->workflow->requestCancel(
+                        $caseId,
+                        $actorUserId,
+                        $reason,
+                        $managerOverride ? 'time.leave.admin' : null,
+                    );
                 }
 
                 $projection->forceFill(['state' => 'CANCELLED', 'updated_at' => $this->clock->now()])->save();
@@ -511,7 +540,7 @@ final class LeaveRequestService
      */
     public function forEmployment(int $employmentId, ?string $asOf = null, ?string $toDate = null): array
     {
-        $asOf ??= $this->clock->now()->toDateString();
+        $asOf ??= $this->businessDates->today()->value();
 
         $query = LeaveRequestProjection::query()
             ->where('employment_id', $employmentId)
@@ -631,7 +660,7 @@ final class LeaveRequestService
         ?string $attachmentReference = null,
     ): array {
         $conflicts = [];
-        $today = $this->clock->now()->toDateString();
+        $today = $this->businessDates->today()->value();
         $minNoticeDays = (int) $policy->min_notice_days;
 
         if ($minNoticeDays > 0) {
@@ -701,6 +730,55 @@ final class LeaveRequestService
         return $query->first();
     }
 
+    /**
+     * Revocation originates in Time, while the original approval effect lives
+     * in Workflow. When a reverse effect is declared on the case snapshot it is
+     * executed now so the append-only REVERSE and the effect status stay one
+     * fact. Legacy snapshots without that declaration fall back to the ledger
+     * path below; the ledger source key still makes either path idempotent.
+     *
+     * @return int reversed minutes, or 0 when no reverse effect was executed
+     */
+    private function approvedEffectReversal(
+        LeaveRequestProjection $projection,
+        string $reason,
+        ?string $caseStatus,
+        ?string $authorizingCapability = null,
+    ): int {
+        if (! in_array(strtoupper((string) $caseStatus), ['APPROVED'], true)) {
+            return 0;
+        }
+
+        $case = $this->workflow->case((int) $projection->case_id);
+
+        if ($case === null || $case->effectStatus !== 'APPLIED') {
+            return 0;
+        }
+
+        $consumed = $this->consumedMinutes($projection);
+
+        if ($consumed === 0) {
+            return 0;
+        }
+
+        $result = $this->workflow->reverseEffect(
+            caseId: (int) $projection->case_id,
+            reason: $reason,
+            effectiveOn: $this->businessDates->today()->value(),
+            authorizingCapability: $authorizingCapability,
+        );
+
+        if ((int) ($result['reversed'] ?? 0) < 1) {
+            throw new ConflictException('The Workflow effect reversal did not complete.', [
+                'reason' => 'EFFECT_REVERSAL_FAILED',
+                'case_id' => (int) $projection->case_id,
+                'effect_status' => (string) ($result['effect_status'] ?? 'UNKNOWN'),
+            ]);
+        }
+
+        return $consumed;
+    }
+
     private function consumedMinutes(LeaveRequestProjection $projection): int
     {
         $consume = LeaveLedgerEntry::query()
@@ -727,7 +805,7 @@ final class LeaveRequestService
             return $halfDay ? 30 : max(1, $workingDays * 60);
         }
 
-        $standardDay = $this->accounts->standardDayMinutes($employmentId, $this->clock->now()->toDateString());
+        $standardDay = $this->accounts->standardDayMinutes($employmentId, $this->businessDates->today()->value());
 
         return ($halfDay ? 1 : max(1, $workingDays)) * $standardDay;
     }
@@ -736,6 +814,21 @@ final class LeaveRequestService
      * Walk the company calendar day by day; weekends and holidays are not
      * silently counted as leave.
      */
+    private function assertPayrollTreatmentResolved(\App\Modules\Time\Models\LeavePolicyVersion $policy): void
+    {
+        $treatment = is_string($policy->payroll_treatment) ? strtoupper(trim($policy->payroll_treatment)) : '';
+        $legacy = (array) $policy->accrual_json;
+        $treatment = $treatment !== '' ? $treatment : strtoupper((string) ($legacy['payroll_treatment'] ?? 'UNRESOLVED'));
+
+        if ($treatment === 'UNRESOLVED' || $treatment === '') {
+            throw new ConflictException('The leave policy payroll treatment must be configured before submission.', [
+                'reason' => 'LEAVE_PAYROLL_TREATMENT_UNRESOLVED',
+                'leave_type_id' => (int) $policy->leave_type_id,
+                'policy_version_id' => (int) $policy->id,
+            ]);
+        }
+    }
+
     private function workingDays(string $fromDate, string $toDate): int
     {
         $cursor = CarbonImmutable::parse($fromDate, 'UTC')->startOfDay();

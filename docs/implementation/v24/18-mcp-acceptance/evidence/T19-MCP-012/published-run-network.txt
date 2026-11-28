@@ -1,0 +1,18 @@
+953. [GET] http://127.0.0.1:5190/v1/me => [200] OK
+954. [GET] http://127.0.0.1:5190/v1/auth/csrf => [200] OK
+955. [GET] http://127.0.0.1:5190/v1/me/capabilities => [200] OK
+956. [GET] http://127.0.0.1:5190/v1/me/permissions => [200] OK
+971. [GET] http://127.0.0.1:5190/v1/payroll/runs?page=1&page_size=20 => [200] OK
+972. [GET] http://127.0.0.1:5190/v1/reporting/dashboard => [200] OK
+976. [GET] http://127.0.0.1:5190/v1/me => [401] Unauthorized
+981. [POST] http://127.0.0.1:5190/v1/auth/login => [200] OK
+982. [GET] http://127.0.0.1:5190/v1/me => [200] OK
+983. [GET] http://127.0.0.1:5190/v1/me/capabilities => [200] OK
+984. [GET] http://127.0.0.1:5190/v1/me/permissions => [200] OK
+996. [GET] http://127.0.0.1:5190/v1/payroll/runs/1 => [200] OK
+997. [GET] http://127.0.0.1:5190/v1/reporting/dashboard => [200] OK
+998. [GET] http://127.0.0.1:5190/v1/payroll/runs/1/employees => [200] OK
+999. [GET] http://127.0.0.1:5190/v1/payroll/runs/1/reconciliation => [200] OK
+1000. [GET] http://127.0.0.1:5190/v1/payroll/runs/1/inputs => [200] OK
+
+Note: 36 static requests not shown, run with "static" option to see them.

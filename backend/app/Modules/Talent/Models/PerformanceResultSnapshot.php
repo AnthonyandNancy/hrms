@@ -15,6 +15,9 @@ use Illuminate\Database\Eloquent\Model;
  * in addition to the absence of any update/delete HTTP operation.
  */
 /**
+ * @property int|null $score_scaled
+ * @property string|null $grade
+ * @property string|null $source_revision
  * @property \Carbon\CarbonImmutable|null $published_at
  */
 final class PerformanceResultSnapshot extends Model
@@ -30,6 +33,9 @@ final class PerformanceResultSnapshot extends Model
         'manager_rating',
         'calibrated_rating',
         'final_rating',
+        'score_scaled',
+        'grade',
+        'source_revision',
         'published_at',
         'published_by',
     ];
@@ -56,6 +62,7 @@ final class PerformanceResultSnapshot extends Model
             'employment_id' => 'integer',
             'published_at' => 'immutable_datetime',
             'published_by' => 'integer',
+            'score_scaled' => 'integer',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];

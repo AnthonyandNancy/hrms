@@ -1,0 +1,9 @@
+mysql: [Warning] Using a password on the command line interface can be insecure.
+case_events
+case_members
+cases
+workflow_delegations
+workflow_instances
+workflow_tasks
+workflow_template_nodes
+workflow_templates

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Payroll\Http\Controllers;
 
+use App\Modules\IAM\Contracts\AllowedActionResolver;
+use App\Modules\Payroll\Enums\PayrollRunStatus;
 use App\Modules\Payroll\Services\ApprovalService;
 use App\Modules\Payroll\Services\CalculationService;
 use App\Modules\Payroll\Services\CorrectionService;
@@ -35,6 +37,7 @@ final class PayrollRunController
         private readonly ExportService $exports,
         private readonly ReconciliationService $reconciliation,
         private readonly CompanyBusinessDate $businessDates,
+        private readonly AllowedActionResolver $allowedActions,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -92,8 +95,46 @@ final class PayrollRunController
         // enforces both the anchor and the profile ceiling.
         $fields = $this->moneyFields($principal, 'payroll.payslip.read', $run);
         $includeAmounts = $fields->isVisible('gross') && $fields->isVisible('net');
+        $status = $run->status instanceof PayrollRunStatus
+            ? $run->status->value
+            : (string) $run->status;
+        $businessDate = $this->businessDates->today()->value();
 
-        return ApiResponse::ok($this->runs->runDetail($run, $includeAmounts));
+        return ApiResponse::ok([
+            ...$this->runs->runDetail($run, $includeAmounts),
+            'state' => $status,
+            'payslip_status' => (string) $run->payslip_status,
+            'disbursement_status' => (string) $run->disbursement_status,
+            'version' => (int) $run->snapshot_version,
+            'source_version' => $run->input_hash,
+            'allowed_actions' => $this->allowedActions->for(
+                $principal,
+                'payroll_run',
+                (int) $run->id,
+                ['status' => $status, 'payslip_status' => (string) $run->payslip_status, 'disbursement_status' => (string) $run->disbursement_status],
+                $businessDate,
+            ),
+        ]);
+    }
+
+    public function assignMember(Request $request, int $id): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $data = $request->validate([
+            'user_id' => ['required', 'integer', 'min:1'],
+            'member_role' => ['required', 'string', 'in:REVIEWER,APPROVER,PUBLISHER,DISBURSER'],
+            'reason' => ['required', 'string', 'min:5', 'max:500'],
+        ]);
+
+        $member = $this->runs->assignMember(
+            runId: $id,
+            actorUserId: (int) $principal->userId(),
+            targetUserId: (int) $data['user_id'],
+            memberRole: (string) $data['member_role'],
+            reason: (string) $data['reason'],
+        );
+
+        return ApiResponse::created($member);
     }
 
     public function employees(int $id): JsonResponse
@@ -331,6 +372,17 @@ final class PayrollRunController
         );
 
         return ApiResponse::created($this->runs->runDetail($run, $this->amountsVisibleFor($principal, $run)));
+    }
+
+    public function voidCorrection(Request $request, int $id): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:10', 'max:500'],
+        ]);
+        $run = $this->corrections->voidUnpaid($id, (int) $principal->userId(), (string) $data['reason']);
+
+        return ApiResponse::ok($this->runs->runDetail($run, $this->amountsVisibleFor($principal, $run)));
     }
 
     public function reconciliation(int $id): JsonResponse

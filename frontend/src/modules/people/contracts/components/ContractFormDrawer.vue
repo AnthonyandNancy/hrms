@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { ApiError } from '@/api/errors'
+import { DISPLAY_CODES } from '@/shared/display/dictionary'
 import {
   CONTRACT_TYPES,
   type Contract,
@@ -280,7 +281,9 @@ function submit(): void {
     work_location: draft.workLocation.trim() === '' ? null : draft.workLocation.trim(),
     signed_on: draft.signedOn === '' ? null : draft.signedOn,
     terms_summary: draft.termsSummary.trim() === '' ? null : draft.termsSummary.trim(),
-    status: draft.activateImmediately && props.mode === 'create' ? 'ACTIVE' : 'DRAFT',
+    status: draft.activateImmediately && props.mode === 'create'
+      ? DISPLAY_CODES.contractStatus.active
+      : DISPLAY_CODES.contractStatus.draft,
     reason: props.mode === 'renew' ? draft.reason.trim() : null,
     renewal_of_contract_id: props.mode === 'renew' ? props.renewalSource?.id ?? null : null,
   })

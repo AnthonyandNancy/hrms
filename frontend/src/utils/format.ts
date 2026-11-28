@@ -6,29 +6,68 @@ const DEFAULT_TIMEZONE = 'Asia/Shanghai'
  * payloads must be rejected by adapter normalizers; this formatter is the last
  * rendering guard and never throws, so one bad amount cannot blank a page.
  */
-export function formatMoney(cents: number | null | undefined): string {
-  if (cents === null || cents === undefined || !Number.isSafeInteger(cents)) {
-    return '—'
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  CNY: '¥',
+  EUR: '€',
+  USD: '$',
+  GBP: '£',
+  JPY: '¥',
+}
+
+function moneyCents(value: string | number | bigint): bigint | null {
+  if (typeof value === 'bigint') return value
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value)) return null
+    return BigInt(value)
   }
-  const sign = cents < 0 ? '-' : ''
-  const absolute = Math.abs(cents)
-  const amount = new Intl.NumberFormat(DEFAULT_LOCALE, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(absolute / 100)
-  return `${sign}¥${amount}`
+  if (typeof value === 'string' && /^-?\d+$/.test(value)) {
+    try {
+      return BigInt(value)
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
+/**
+ * Format integer minor units without ever converting through a float. BigInt
+ * handles values beyond Number.MAX_SAFE_INTEGER while grouping is still done
+ * by Intl with a BigInt argument.
+ */
+export function formatMoney(
+  cents: string | number | bigint | null | undefined,
+  currency = 'CNY',
+): string {
+  if (cents === null || cents === undefined) return '—'
+  const value = moneyCents(cents)
+  if (value === null) return '—'
+  const negative = value < 0n
+  const absolute = negative ? -value : value
+  const whole = absolute / 100n
+  const fraction = (absolute % 100n).toString().padStart(2, '0')
+  const grouped = new Intl.NumberFormat(DEFAULT_LOCALE, {
+    maximumFractionDigits: 0,
+    useGrouping: true,
+  }).format(whole)
+  const symbol = CURRENCY_SYMBOLS[currency.toUpperCase()] ?? `${currency.toUpperCase()} `
+  return `${negative ? '-' : ''}${symbol}${grouped}.${fraction}`
 }
 
 export function parseYuanToCents(value: string): number {
-  const normalized = value.trim().replace(/[¥,\s]/g, '')
+  const normalized = value.trim().replace(/[¥€$£,\s]/g, '')
   if (!/^-?\d+(\.\d{0,2})?$/.test(normalized)) {
     throw new TypeError('Amount must have at most two decimal places')
   }
   const negative = normalized.startsWith('-')
   const digits = negative ? normalized.slice(1) : normalized
   const [whole = '0', fraction = ''] = digits.split('.')
-  const cents = Number(whole) * 100 + Number(fraction.padEnd(2, '0'))
-  return negative ? -cents : cents
+  const cents = BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0'))
+  const signed = negative ? -cents : cents
+  if (signed > BigInt(Number.MAX_SAFE_INTEGER) || signed < BigInt(Number.MIN_SAFE_INTEGER)) {
+    throw new TypeError('Amount exceeds the safe integer range')
+  }
+  return Number(signed)
 }
 
 function partsToRecord(parts: Intl.DateTimeFormatPart[]): Record<string, string> {

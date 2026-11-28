@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { getApi } from '@/api'
 import type { DashboardMetricCode, MetricDrilldown } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
+import { metricAvailabilityLabel } from '@/modules/reporting/api'
 import { formatBusinessDate } from '@/utils/format'
 import LoadingState from '@/components/LoadingState.vue'
 import ErrorState from '@/components/ErrorState.vue'
@@ -90,7 +91,7 @@ onMounted(load)
             <tr v-for="row in data.rows" :key="row.id" class="drilldown-row" @click="openRow(row.link)">
               <td>{{ row.primary }}</td>
               <td class="small">{{ row.secondary }}</td>
-              <td><span class="plain-chip">{{ row.status }}</span></td>
+              <td><span class="plain-chip">{{ metricAvailabilityLabel(row.status) }}</span></td>
               <td class="small">{{ row.detail }}</td>
               <td>
                 <el-button v-if="row.link" text size="small" @click.stop="openRow(row.link)">查看</el-button>

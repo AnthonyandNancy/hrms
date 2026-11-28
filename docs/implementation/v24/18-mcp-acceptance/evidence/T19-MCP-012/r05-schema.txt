@@ -1,0 +1,30 @@
+===payslips
+id	bigint unsigned	NO	PRI	NULL	auto_increment
+run_id	bigint unsigned	NO	MUL	NULL	
+employment_id	bigint unsigned	NO	MUL	NULL	
+version	int unsigned	NO		1	
+gross_cents	bigint	NO		0	
+deductions_cents	bigint	NO		0	
+net_cents	bigint	NO		0	
+employer_cost_cents	bigint	NO		0	
+published_at	datetime(6)	YES	MUL	NULL	
+pdf_file_id	bigint unsigned	YES		NULL	
+created_at	timestamp(6)	YES		NULL	
+updated_at	timestamp(6)	YES		NULL	
+===payroll_ytd_ledger_entries
+id	bigint unsigned	NO	PRI	NULL	auto_increment
+employment_id	bigint unsigned	NO	MUL	NULL	
+tax_year	smallint unsigned	NO	MUL	NULL	
+source_run_id	bigint unsigned	NO	MUL	NULL	
+source_employee_id	bigint unsigned	NO	MUL	NULL	
+source_type	varchar(24)	NO		NULL	
+entry_type	varchar(24)	NO		PUBLISH	
+taxable_income_cents	bigint	NO		0	
+tax_withheld_cents	bigint	NO		0	
+social_insurance_cents	bigint	NO		0	
+housing_fund_cents	bigint	NO		0	
+gross_cents	bigint	NO		0	
+net_cents	bigint	NO		0	
+carry_forward_cents	bigint	NO		0	
+source_hash	char(64)	NO		NULL	
+created_at	datetime(6)	NO		NULL	

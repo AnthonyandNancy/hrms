@@ -18,8 +18,8 @@ import {
   restoreEmployee,
   type EmployeeListResult,
   type EmployeeRow,
-  type OnboardedEmployee,
   type OrgUnitOption,
+  type PendingOnboardingCase,
   type PositionOption,
 } from '../api'
 import EmployeeFilter, { type EmployeeFilterValue } from '../components/EmployeeFilter.vue'
@@ -57,6 +57,7 @@ const exporting = ref(false)
 const orgUnits = ref<OrgUnitOption[]>([])
 const positions = ref<PositionOption[]>([])
 const successMessage = ref('')
+const pendingCase = ref<PendingOnboardingCase | null>(null)
 
 let requestSequence = 0
 
@@ -89,9 +90,13 @@ const tableRows = computed(() =>
 const errorMessage = computed(() => (pageError.value === null ? '' : errorCopy(pageError.value)))
 const errorRequestId = computed(() => (pageError.value === null ? null : requestIdFromError(pageError.value)))
 const canManage = computed(() => session.can('people.employee.manage'))
+const canOnboard = computed(() => canManage.value && session.can('lifecycle.onboarding.manage'))
+const canReadLifecycleCase = computed(() => session.can('lifecycle.case.read'))
 const canExport = computed(() => session.can('people.employee.export'))
 const canArchive = computed(() => session.can('people.employee.archive'))
 const canRestore = computed(() => session.can('people.employee.restore'))
+const canReadOrgUnits = computed(() => session.can('org.unit.read'))
+const canReadPositions = computed(() => session.can('org.position.read'))
 
 async function load(): Promise<void> {
   const sequence = ++requestSequence
@@ -126,8 +131,8 @@ async function load(): Promise<void> {
 
 async function loadLookups(): Promise<void> {
   const [unitResult, positionResult] = await Promise.allSettled([
-    listOrgUnits(asOf.value),
-    listPositions(asOf.value),
+    canReadOrgUnits.value ? listOrgUnits(asOf.value) : Promise.resolve([]),
+    canReadPositions.value ? listPositions(asOf.value) : Promise.resolve([]),
   ])
   orgUnits.value = unitResult.status === 'fulfilled' ? unitResult.value : []
   positions.value = positionResult.status === 'fulfilled' ? positionResult.value : []
@@ -167,13 +172,11 @@ function openCreate(): void {
   createOpen.value = true
 }
 
-function onCreated(created: OnboardedEmployee): void {
-  const employeeNo = created.employee_no || `#${created.employment_id}`
+function onCreated(created: PendingOnboardingCase): void {
+  pendingCase.value = created
   successMessage.value = created.replayed
-    ? `员工 ${employeeNo} 已存在（幂等重放，未重复创建）。`
-    : `员工 ${employeeNo} 已创建。`
-  page.value = 1
-  void load()
+    ? `入职审批 Case ${created.case_no} 已存在（幂等重放，未重复提交）。`
+    : '已提交入职审批。'
 }
 
 async function onArchive(row: EmployeeRow): Promise<void> {
@@ -199,6 +202,7 @@ async function onArchive(row: EmployeeRow): Promise<void> {
   if (reason.length < 3) return
   try {
     await archiveEmployee(row.employment_id, reason)
+    pendingCase.value = null
     successMessage.value = `员工 ${row.employee_no} 已归档。`
     page.value = 1
     await load()
@@ -221,6 +225,7 @@ async function onRestore(row: EmployeeRow): Promise<void> {
   }
   try {
     await restoreEmployee(row.employment_id)
+    pendingCase.value = null
     successMessage.value = `员工 ${row.employee_no} 已恢复。`
     page.value = 1
     await load()
@@ -258,6 +263,7 @@ async function onExport(): Promise<void> {
       include_archived: includeArchived.value,
     })
     saveEmployeeExport(file)
+    pendingCase.value = null
     successMessage.value = `员工导出已生成（${file.filename}）。`
   } catch (error) {
     ElMessageBox.alert(errorCopy(error), '导出未完成', { confirmButtonText: '知道了' }).catch(() => undefined)
@@ -289,7 +295,7 @@ onBeforeUnmount(() => {
       <el-button :disabled="loading" @click="load">刷新</el-button>
       <ActionGate capability="people.employee.manage">
         <el-button data-testid="employee-imports" @click="openImports">导入结果</el-button>
-        <el-button type="primary" data-testid="employee-create" @click="openCreate">新建员工</el-button>
+        <el-button v-if="canOnboard" type="primary" data-testid="employee-create" @click="openCreate">新建员工</el-button>
       </ActionGate>
       <ActionGate capability="people.employee.export">
         <el-button
@@ -313,8 +319,17 @@ onBeforeUnmount(() => {
       @change="onFilterChange"
     />
 
-    <el-alert v-if="successMessage" type="success" :closable="true" show-icon data-testid="employee-created-message" @close="successMessage = ''">
-      <template #title>{{ successMessage }}</template>
+    <el-alert v-if="successMessage" type="success" :closable="true" show-icon data-testid="employee-created-message" @close="successMessage = ''; pendingCase = null">
+      <template #title>
+        {{ successMessage }}
+        <RouterLink
+          v-if="pendingCase && canReadLifecycleCase"
+          :to="`/hr/movements/${pendingCase.case_id}`"
+          data-testid="onboarding-case-link"
+        >
+          查看 Case {{ pendingCase.case_no }}
+        </RouterLink>
+      </template>
     </el-alert>
 
     <el-alert v-if="isPartial" type="warning" :closable="false" show-icon data-testid="employee-partial">
@@ -348,8 +363,8 @@ onBeforeUnmount(() => {
         v-if="isEmpty"
         title="暂无员工"
         description="当前筛选条件下没有员工记录。可以调整筛选，或直接新建一名员工。"
-        :action-label="canManage ? '新建员工' : '清空筛选'"
-        @action="canManage ? openCreate() : resetFilters()"
+        :action-label="canOnboard ? '新建员工' : '清空筛选'"
+        @action="canOnboard ? openCreate() : resetFilters()"
       />
 
       <EmployeeTable

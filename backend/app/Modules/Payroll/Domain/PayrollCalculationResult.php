@@ -32,6 +32,7 @@ final readonly class PayrollCalculationResult
         public CumulativeTaxDetail $cumulativeTax,
         public array $lines,
         public array $warnings = [],
+        public ?Money $otherEmployerCosts = null,
     ) {
         $this->assertBalanced();
     }
@@ -50,6 +51,7 @@ final readonly class PayrollCalculationResult
             $this->employerHousingFund,
             $this->employerCost,
             $this->net,
+            ...($this->otherEmployerCosts === null ? [] : [$this->otherEmployerCosts]),
         ] as $money) {
             $this->assertCurrency($money, $currency);
         }
@@ -90,12 +92,14 @@ final readonly class PayrollCalculationResult
             throw new InvalidArgumentException('Employee deduction components must sum to total deductions.');
         }
 
+        $otherEmployerCost = $this->otherEmployerCosts?->minor() ?? 0;
+
         if ($this->gross->minor() + $this->employerSocialInsurance->minor()
-            + $this->employerHousingFund->minor() !== $this->employerCost->minor()) {
+            + $this->employerHousingFund->minor() + $otherEmployerCost !== $this->employerCost->minor()) {
             throw new InvalidArgumentException('Employer cost must equal gross plus employer contributions.');
         }
 
-        if ($employerTotal !== $this->employerSocialInsurance->minor() + $this->employerHousingFund->minor()) {
+        if ($employerTotal !== $this->employerSocialInsurance->minor() + $this->employerHousingFund->minor() + $otherEmployerCost) {
             throw new InvalidArgumentException('Employer cost lines must equal employer contributions.');
         }
 

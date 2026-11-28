@@ -23,6 +23,7 @@ use App\Shared\Authorization\Contracts\SensitiveAccessAuditor;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundException;
+use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\CompanyBusinessDate;
@@ -48,7 +49,10 @@ final class RecruitmentController
     public function requisitions(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $this->allow($principal, 'recruitment.requisition.read', AnchorRef::company());
+        $today = $this->businessDates->today()->value();
+        if (! $this->authorizer->permits($principal, 'recruitment.requisition.read', $today)) {
+            throw new AuthorizationException('Forbidden.');
+        }
 
         $data = $request->validate([
             'status' => ['nullable', 'string', 'max:24'],
@@ -60,7 +64,12 @@ final class RecruitmentController
         $page = (int) ($data['page'] ?? 1);
         $pageSize = (int) ($data['page_size'] ?? 50);
 
-        $query = Requisition::query()
+        $query = $this->authorizer->constrain(
+            Requisition::query(),
+            $principal,
+            'recruitment.requisition.read',
+            $today,
+        )
             ->when(isset($data['status']) && $data['status'] !== '', fn ($builder) => $builder->where('status', (string) $data['status']))
             ->when(isset($data['search']) && trim((string) $data['search']) !== '', function ($builder) use ($data): void {
                 $term = '%'.trim((string) $data['search']).'%';
@@ -84,7 +93,6 @@ final class RecruitmentController
     {
         $principal = $this->principals->resolve();
         $today = $this->businessDates->today();
-        $this->allow($principal, 'recruitment.requisition.manage', AnchorRef::company());
 
         $data = $request->validate([
             'org_unit_id' => ['required', 'integer', 'min:1'],
@@ -95,6 +103,7 @@ final class RecruitmentController
             'budget_currency' => ['nullable', 'string', 'size:3'],
             'target_start_date' => ['nullable', new BusinessDateRule],
         ]);
+        $this->allow($principal, 'recruitment.requisition.manage', AnchorRef::orgUnit((int) $data['org_unit_id']));
 
         return $this->command($request, 'requisition', $data, fn (): array => $this->recruitment->createRequisition($principal->userId(), $data, $today->value()));
     }
@@ -102,7 +111,6 @@ final class RecruitmentController
     public function updateRequisition(Request $request, int $id): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $this->allow($principal, 'recruitment.requisition.manage', AnchorRef::company());
 
         $data = $request->validate([
             'org_unit_id' => ['sometimes', 'integer', 'min:1'],
@@ -112,6 +120,15 @@ final class RecruitmentController
             'budget_currency' => ['sometimes', 'nullable', 'string', 'size:3'],
             'target_start_date' => ['sometimes', 'nullable', new BusinessDateRule],
         ]);
+        $existing = Requisition::query()->whereKey($id)->first();
+        if ($existing === null) {
+            throw NotFoundException::forResource();
+        }
+        $this->allow($principal, 'recruitment.requisition.manage', AnchorRef::orgUnit((int) $existing->org_unit_id));
+        $targetOrgUnitId = isset($data['org_unit_id']) ? (int) $data['org_unit_id'] : (int) $existing->org_unit_id;
+        if ($targetOrgUnitId !== (int) $existing->org_unit_id) {
+            $this->allow($principal, 'recruitment.requisition.manage', AnchorRef::orgUnit($targetOrgUnitId));
+        }
 
         return $this->command(
             $request,
@@ -127,7 +144,11 @@ final class RecruitmentController
     public function closeRequisition(Request $request, int $id): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $this->allow($principal, 'recruitment.requisition.manage', AnchorRef::company());
+        $existing = Requisition::query()->whereKey($id)->first();
+        if ($existing === null) {
+            throw NotFoundException::forResource();
+        }
+        $this->allow($principal, 'recruitment.requisition.manage', AnchorRef::orgUnit((int) $existing->org_unit_id));
 
         $data = $request->validate([
             'reason' => ['nullable', 'string', 'max:500'],
@@ -147,7 +168,26 @@ final class RecruitmentController
     public function candidates(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $this->allow($principal, 'recruitment.candidate.read', AnchorRef::company());
+        $today = $this->businessDates->today()->value();
+        if (! $this->authorizer->permits($principal, 'recruitment.candidate.read', $today)) {
+            throw new AuthorizationException('Forbidden.');
+        }
+        $companyWide = $this->authorizer->allows(
+            $principal,
+            'recruitment.candidate.read',
+            AnchorRef::company(),
+            $today,
+        );
+        $visibleCandidateIds = null;
+        if (! $companyWide) {
+            $visibleRequisitionIds = $this->visibleRequisitionIds($principal, 'recruitment.candidate.read', $today);
+            $visibleCandidateIds = CandidateApplication::query()
+                ->whereIn('requisition_id', $visibleRequisitionIds === [] ? [-1] : $visibleRequisitionIds)
+                ->distinct()
+                ->pluck('candidate_id')
+                ->map(static fn (mixed $id): int => (int) $id)
+                ->all();
+        }
 
         $data = $request->validate([
             'requisition_id' => ['nullable', 'integer', 'min:1'],
@@ -178,6 +218,10 @@ final class RecruitmentController
         $talentPoolOnly = ($data['talent_pool'] ?? false) === true;
 
         $query = Candidate::query()
+            ->when($visibleCandidateIds !== null, fn ($builder) => $builder->whereIn(
+                'id',
+                $visibleCandidateIds === [] ? [-1] : $visibleCandidateIds,
+            ))
             // Direct id lookup so a detail view never depends on the candidate
             // being inside the first page of the collection.
             ->when(isset($data['candidate_id']), fn ($builder) => $builder->whereKey((int) $data['candidate_id']))
@@ -204,9 +248,13 @@ final class RecruitmentController
     public function applications(Request $request, int $candidateId): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $this->allow($principal, 'recruitment.candidate.read', AnchorRef::company());
-
-        $items = $this->applications->listForCandidate($candidateId);
+        $today = $this->businessDates->today()->value();
+        $this->assertCandidateVisible($principal, $candidateId, 'recruitment.candidate.read', $today);
+        $visibleRequisitionIds = $this->visibleRequisitionIds($principal, 'recruitment.candidate.read', $today);
+        $items = array_values(array_filter(
+            $this->applications->listForCandidate($candidateId),
+            static fn (array $item): bool => in_array((int) ($item['requisition_id'] ?? 0), $visibleRequisitionIds, true),
+        ));
 
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
     }
@@ -214,13 +262,17 @@ final class RecruitmentController
     public function storeApplication(Request $request, int $candidateId): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $this->allow($principal, 'recruitment.candidate.manage', AnchorRef::company());
 
         $data = $request->validate([
             'requisition_id' => ['required', 'integer', 'min:1'],
             'opening_id' => ['nullable', 'integer', 'min:1'],
             'source' => ['nullable', 'string', 'max:64'],
         ]);
+        $requisition = Requisition::query()->whereKey((int) $data['requisition_id'])->first();
+        if ($requisition === null) {
+            throw NotFoundException::forResource();
+        }
+        $this->allow($principal, 'recruitment.candidate.manage', AnchorRef::orgUnit((int) $requisition->org_unit_id));
 
         return $this->command(
             $request,
@@ -235,7 +287,8 @@ final class RecruitmentController
     public function moveCandidateStage(Request $request, int $id): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $this->allow($principal, 'recruitment.candidate.manage', AnchorRef::company());
+        $today = $this->businessDates->today()->value();
+        $this->assertCandidateVisible($principal, $id, 'recruitment.candidate.manage', $today);
 
         $data = $request->validate([
             'status' => ['required', 'string', 'max:24'],
@@ -258,7 +311,9 @@ final class RecruitmentController
     public function interviews(Request $request, int $candidateId): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $this->allow($principal, 'recruitment.candidate.read', AnchorRef::company());
+        $today = $this->businessDates->today()->value();
+        $this->assertCandidateVisible($principal, $candidateId, 'recruitment.candidate.read', $today);
+        $visibleRequisitionIds = $this->visibleRequisitionIds($principal, 'recruitment.candidate.read', $today);
 
         $candidate = Candidate::query()->whereKey($candidateId)->first();
 
@@ -266,17 +321,13 @@ final class RecruitmentController
             throw NotFoundException::forResource();
         }
 
-        $canSeeFeedback = $this->authorizer->allows(
-            $principal,
-            'recruitment.evaluation.manage',
-            AnchorRef::company(),
-            $this->businessDates->today()->value(),
-        );
+        $canSeeFeedback = $this->authorizer->permits($principal, 'recruitment.evaluation.manage', $today);
 
         $items = [];
 
         foreach (Interview::query()
             ->where('candidate_id', $candidateId)
+            ->whereIn('requisition_id', $visibleRequisitionIds === [] ? [-1] : $visibleRequisitionIds)
             ->orderByDesc('scheduled_at')
             ->orderByDesc('id')
             ->get() as $interview) {
@@ -330,7 +381,9 @@ final class RecruitmentController
     public function storeCandidate(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $this->allow($principal, 'recruitment.candidate.manage', AnchorRef::company());
+        if (! $this->authorizer->permits($principal, 'recruitment.candidate.manage', $this->businessDates->today()->value())) {
+            throw new AuthorizationException('Forbidden.');
+        }
 
         $data = $request->validate([
             'display_name' => ['required', 'string', 'max:120'],
@@ -345,7 +398,6 @@ final class RecruitmentController
     public function storeInterview(Request $request, int $candidateId): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $this->allow($principal, 'recruitment.interview.manage', AnchorRef::company());
 
         $data = $request->validate([
             'requisition_id' => ['required', 'integer', 'min:1'],
@@ -356,6 +408,11 @@ final class RecruitmentController
             'feedback' => ['nullable', 'string', 'max:4000'],
             'recommendation' => ['nullable', 'string', 'in:STRONG_YES,YES,NO,STRONG_NO'],
         ]);
+        $requisition = Requisition::query()->whereKey((int) $data['requisition_id'])->first();
+        if ($requisition === null) {
+            throw NotFoundException::forResource();
+        }
+        $this->allow($principal, 'recruitment.interview.manage', AnchorRef::orgUnit((int) $requisition->org_unit_id));
 
         return $this->command($request, "candidate-{$candidateId}-interview", $data, fn (): array => $this->recruitment->createInterview($principal->userId(), $candidateId, $data));
     }
@@ -394,6 +451,7 @@ final class RecruitmentController
             'requisition_id' => ['required', 'integer', 'min:1'],
             'base_salary_minor' => ['required', 'integer', 'min:0'],
             'salary_currency' => ['required', 'string', 'size:3'],
+            'salary_scheme_code' => ['nullable', 'string', 'max:64'],
             'start_date' => ['required', new BusinessDateRule],
         ]);
 
@@ -662,6 +720,50 @@ final class RecruitmentController
         }
 
         return \Carbon\CarbonImmutable::parse((string) $value)->toIso8601ZuluString();
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function visibleRequisitionIds(Principal $principal, string $capability, string $businessDate): array
+    {
+        return $this->authorizer
+            ->constrain(Requisition::query(), $principal, $capability, $businessDate)
+            ->pluck('id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->all();
+    }
+
+    private function assertCandidateVisible(
+        Principal $principal,
+        int $candidateId,
+        string $capability,
+        string $businessDate,
+    ): void {
+        if (! $this->authorizer->permits($principal, $capability, $businessDate)) {
+            throw new AuthorizationException('Forbidden.');
+        }
+        if ($this->authorizer->allows($principal, $capability, AnchorRef::company(), $businessDate)) {
+            return;
+        }
+
+        $visibleRequisitionIds = $this->visibleRequisitionIds($principal, $capability, $businessDate);
+        if ($visibleRequisitionIds === []) {
+            throw new NotFoundOrForbiddenException;
+        }
+
+        $visibleApplication = CandidateApplication::query()
+            ->where('candidate_id', $candidateId)
+            ->whereIn('requisition_id', $visibleRequisitionIds)
+            ->exists();
+        $visibleInterview = Interview::query()
+            ->where('candidate_id', $candidateId)
+            ->whereIn('requisition_id', $visibleRequisitionIds)
+            ->exists();
+
+        if (! $visibleApplication && ! $visibleInterview) {
+            throw new NotFoundOrForbiddenException;
+        }
     }
 
     private function allow(Principal $principal, string $capability, AnchorRef $anchor): void

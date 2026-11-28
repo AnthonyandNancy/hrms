@@ -41,6 +41,60 @@ final class SeedWorkflowTemplatesCommand extends Command
     }
 
     /**
+     * Leave approval must run the real Time effect. Every other reference
+     * template keeps the explicit no-op until its owning module wires one.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function effectsFor(string $code): array
+    {
+        if ($code === 'leave.request') {
+            return [[
+                'type' => 'time.leave.apply',
+                'execution' => 'LOCAL',
+                'aggregate_type' => 'case',
+                'aggregate_id_field' => 'case_id',
+                'reverse_effect_type' => 'time.leave.reverse',
+                'outcome_effect_type' => 'time.leave.pending.release',
+            ]];
+        }
+
+        return [[
+            'type' => 'workflow.noop',
+            'execution' => 'LOCAL',
+            'aggregate_type' => 'case',
+            'aggregate_id_field' => 'case_id',
+        ]];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function payrollApprovalDefinition(): array
+    {
+        return [
+            'nodes' => [
+                ['key' => 'start', 'name' => 'Start', 'type' => 'START', 'sequence' => 1],
+                [
+                    'key' => 'approve',
+                    'name' => 'Payroll approver',
+                    'type' => 'APPROVAL',
+                    'sequence' => 2,
+                    'assignee_rule' => ['type' => 'CASE_MEMBER', 'role' => 'APPROVER'],
+                    'required_count' => 1,
+                ],
+                ['key' => 'end', 'name' => 'End', 'type' => 'END', 'sequence' => 3],
+            ],
+            'effects' => [[
+                'type' => 'workflow.payroll.publish',
+                'aggregate_type' => 'payroll_run',
+                'aggregate_id_field' => 'subject_id',
+                'execution' => 'LOCAL',
+            ]],
+        ];
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
     private function definitions(): array
@@ -52,6 +106,7 @@ final class SeedWorkflowTemplatesCommand extends Command
             'leave.request',
             'attendance.correction',
             'travel.request',
+            'overtime.request',
             'transfer.request',
             'contract.renewal',
             'onboarding.request',
@@ -66,31 +121,26 @@ final class SeedWorkflowTemplatesCommand extends Command
             $definitions[] = [
                 'code' => $code,
                 'name' => ucwords(str_replace(['.', '-'], ' ', $code)),
-                'version' => 1,
+                'version' => in_array($code, ['leave.request', 'payroll.approval'], true) ? 2 : 1,
                 'status' => 'PUBLISHED',
-                'definition' => [
-                    'nodes' => [
-                        ['key' => 'start', 'name' => 'Start', 'type' => 'START', 'sequence' => 1],
-                        [
-                            'key' => 'approval',
-                            'name' => 'Manager approval',
-                            'type' => 'APPROVAL',
-                            'sequence' => 2,
-                            'assignee_rule' => ['type' => 'MANAGER_OF_SUBJECT'],
-                            'required_count' => 1,
-                            'sla_hours' => 24,
+                'definition' => $code === 'payroll.approval'
+                    ? $this->payrollApprovalDefinition()
+                    : [
+                        'nodes' => [
+                            ['key' => 'start', 'name' => 'Start', 'type' => 'START', 'sequence' => 1],
+                            [
+                                'key' => 'approval',
+                                'name' => 'Manager approval',
+                                'type' => 'APPROVAL',
+                                'sequence' => 2,
+                                'assignee_rule' => ['type' => 'MANAGER_OF_SUBJECT'],
+                                'required_count' => 1,
+                                'sla_hours' => 24,
+                            ],
+                            ['key' => 'end', 'name' => 'End', 'type' => 'END', 'sequence' => 3],
                         ],
-                        ['key' => 'end', 'name' => 'End', 'type' => 'END', 'sequence' => 3],
+                        'effects' => $this->effectsFor((string) $code),
                     ],
-                    'effects' => [
-                        [
-                            'type' => 'workflow.noop',
-                            'execution' => 'LOCAL',
-                            'aggregate_type' => 'case',
-                            'aggregate_id_field' => 'case_id',
-                        ],
-                    ],
-                ],
             ];
         }
 

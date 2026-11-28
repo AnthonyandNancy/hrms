@@ -29,12 +29,20 @@ final class SyncCapabilitiesCommand extends Command
         $definitions = $catalog->all();
         $codes = array_map(static fn ($definition): string => $definition->code, $definitions);
 
-        $orphaned = AuthorityBinding::query()
-            ->where('capability_code', '!=', CapabilityWildcard::WILDCARD)
-            ->whereNotIn('capability_code', $codes)
-            ->distinct()
-            ->pluck('capability_code')
-            ->all();
+        $orphaned = array_values(array_unique([
+            ...AuthorityBinding::query()
+                ->where('capability_code', '!=', CapabilityWildcard::WILDCARD)
+                ->whereNotIn('capability_code', $codes)
+                ->distinct()
+                ->pluck('capability_code')
+                ->all(),
+            ...RoleCapability::query()
+                ->where('capability_code', '!=', CapabilityWildcard::WILDCARD)
+                ->whereNotIn('capability_code', $codes)
+                ->distinct()
+                ->pluck('capability_code')
+                ->all(),
+        ]));
 
         if ($orphaned !== []) {
             $this->error('Refusing to remove referenced capability codes: '.implode(', ', $orphaned));
@@ -81,8 +89,15 @@ final class SyncCapabilitiesCommand extends Command
         $rolePages = new RolePageAssignmentCatalog;
         $pageCount = 0;
 
-        DB::transaction(function () use ($rolePages, $now, &$pageCount): void {
-            RolePage::query()->delete();
+        $templateCodes = array_map(
+            static fn ($template): string => $template->code,
+            RoleTemplateCatalog::templates(),
+        );
+
+        DB::transaction(function () use ($rolePages, $templateCodes, $now, &$pageCount): void {
+            // Template page grants are code-owned and may be replaced, but a
+            // catalog sync must never delete custom-role assignments.
+            RolePage::query()->whereIn('role_code', $templateCodes)->delete();
 
             foreach (RoleTemplateCatalog::templates() as $template) {
                 foreach ($rolePages->pagesForRole($template->code) as $page) {

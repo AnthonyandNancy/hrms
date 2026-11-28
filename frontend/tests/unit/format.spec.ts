@@ -27,11 +27,19 @@ describe('money formatting from integer cents', () => {
     expect(formatMoney(Number.MAX_SAFE_INTEGER + 2)).toBe('—')
   })
 
+  it('formats unsafe and bigint cents exactly without float division', () => {
+    expect(formatMoney('9007199254740993')).toBe('¥90,071,992,547,409.93')
+    expect(formatMoney(9007199254740993n)).toBe('¥90,071,992,547,409.93')
+    expect(formatMoney(-1n)).toBe('-¥0.01')
+    expect(formatMoney(5000, 'EUR')).toBe('€50.00')
+  })
+
   it('parses yuan strings to exact cents', () => {
     expect(parseYuanToCents('1,234.5')).toBe(123450)
     expect(parseYuanToCents('0.01')).toBe(1)
     expect(parseYuanToCents('-8')).toBe(-800)
     expect(() => parseYuanToCents('1.234')).toThrow(TypeError)
+    expect(() => parseYuanToCents('90071992547409.93')).toThrow(TypeError)
   })
 })
 

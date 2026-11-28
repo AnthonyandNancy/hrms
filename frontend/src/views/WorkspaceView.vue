@@ -8,10 +8,10 @@ import type { WorkspaceProjection } from '@/api/contracts'
 import { usePageError } from '@/composables/usePageError'
 import NoActiveEmploymentState from '@/components/NoActiveEmploymentState.vue'
 import { formatBusinessDate, formatDateTimeInTimezone, formatMonthLabel } from '@/utils/format'
-import MoneyText from '@/components/MoneyText.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import FreshnessNote from '@/components/FreshnessNote.vue'
 import MyTasks from '@/modules/platform/self-service/components/MyTasks.vue'
+import PayrollPayslipsPanel from '@/modules/payroll/components/PayrollPayslipsPanel.vue'
 import { loadMyTasks, type SelfServiceTask } from '@/modules/platform/self-service/api'
 import { translate } from '@/shared/display/dictionary'
 import { INTERNAL_DETAIL_ROUTES, INTERNAL_ROUTES } from '@/shared/navigation/internalRoutes'
@@ -85,6 +85,10 @@ function go(path: string): void {
   void router.push(path)
 }
 
+function scrollToPayslips(): void {
+  document.getElementById('my-payslips')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
 onMounted(load)
 </script>
 
@@ -116,7 +120,7 @@ onMounted(load)
         <el-button
           v-if="data === null || data.employment_linked !== false"
           data-testid="workspace-payslip-link"
-          @click="go(INTERNAL_ROUTES.payroll)"
+          @click="scrollToPayslips"
         >
           查看工资条
         </el-button>
@@ -349,26 +353,7 @@ onMounted(load)
           </ul>
         </section>
 
-        <section class="panel workspace-payslips">
-          <div class="panel__header">
-            <div>
-              <h2 class="panel__title">我的工资条</h2>
-              <p class="panel__subtitle">已发布工资条 · 金额为整数分计算</p>
-            </div>
-            <el-button text size="small" @click="go(INTERNAL_ROUTES.payroll)">查看全部</el-button>
-          </div>
-          <ul class="payslip-list">
-            <li v-for="slip in data.payslips.slice(0, 2)" :key="slip.id" class="payslip-list__item">
-              <button type="button" class="payslip-list__button" @click="go(INTERNAL_ROUTES.payroll)">
-                <div>
-                  <p class="payslip-list__period">{{ formatMonthLabel(slip.period) }}</p>
-                  <p class="payslip-list__meta">{{ slip.state === 'CORRECTION' ? '更正批次' : `发放日 ${formatBusinessDate(slip.payDate)}` }}</p>
-                </div>
-                <MoneyText :cents="slip.netCents" label="实发" size="md" />
-              </button>
-            </li>
-          </ul>
-        </section>
+        <PayrollPayslipsPanel id="my-payslips" data-testid="workspace-self-payslips" />
 
         <section class="panel workspace-notices">
           <div class="panel__header">

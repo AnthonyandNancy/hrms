@@ -410,6 +410,14 @@ export function expenseCategoryLabel(category: string): string {
   return EXPENSE_CATEGORY_LABELS[category] ?? '其他'
 }
 
+export function expenseStatusLabel(status: string): string {
+  return status === 'CLAIMED' ? '已申报' : status === 'REVERSED' ? '已冲销' : '未知状态'
+}
+
+export function travelPolicyStatusLabel(status: string): string {
+  return status === 'DRAFT' ? '草稿' : status === 'PUBLISHED' ? '已发布' : status === 'RETIRED' ? '已退役' : '未知状态'
+}
+
 export function paymentStatusLabel(status: string): string {
   return PAYMENT_STATUS_LABELS[status] ?? status
 }

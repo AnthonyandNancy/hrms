@@ -6,6 +6,7 @@ namespace Tests\Support;
 
 use App\Modules\IAM\Contracts\Principal;
 use App\Shared\Authorization\AnchorRef;
+use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Authorization\FieldSet;
@@ -23,9 +24,15 @@ final class AllowAllAuthorizer implements Authorizer
     /** @var array<string, FieldProfile> */
     public array $fieldProfiles = [];
 
+    public ?int $constrainedOrgUnitId = null;
+
     public function constrain(Builder $query, Principal $principal, string $capability, string $businessDate): Builder
     {
         $this->calls[] = ['capability' => $capability, 'anchor' => AnchorRef::self(), 'on' => $businessDate];
+
+        if ($this->constrainedOrgUnitId !== null) {
+            $query->where('org_unit_id', $this->constrainedOrgUnitId);
+        }
 
         return in_array($capability, $this->deniedCapabilities, true) ? $query->whereRaw('1 = 0') : $query;
     }
@@ -38,6 +45,10 @@ final class AllowAllAuthorizer implements Authorizer
     public function allows(Principal $principal, string $capability, AnchorRef $anchor, string $businessDate): bool
     {
         $this->calls[] = ['capability' => $capability, 'anchor' => $anchor, 'on' => $businessDate];
+
+        if ($this->constrainedOrgUnitId !== null && $anchor->type === AnchorType::COMPANY) {
+            return false;
+        }
 
         return ! in_array($capability, $this->deniedCapabilities, true);
     }
@@ -70,6 +81,36 @@ final class AllowAllAuthorizer implements Authorizer
                 'effective_from' => FieldProfile::P0_PUBLIC,
                 'currency' => FieldProfile::P0_PUBLIC,
                 'base_salary_cents' => FieldProfile::P3_RESTRICTED,
+            ],
+            'benefit_enrollment' => [
+                'id' => FieldProfile::P0_PUBLIC,
+                'plan_id' => FieldProfile::P0_PUBLIC,
+                'employment_id' => FieldProfile::P0_PUBLIC,
+                'base_amount_cents' => FieldProfile::P3_RESTRICTED,
+                'employee_rate' => FieldProfile::P1_INTERNAL,
+                'employer_rate' => FieldProfile::P1_INTERNAL,
+                'employee_contribution_cents' => FieldProfile::P3_RESTRICTED,
+                'employer_contribution_cents' => FieldProfile::P3_RESTRICTED,
+                'effective_from' => FieldProfile::P0_PUBLIC,
+                'effective_to' => FieldProfile::P0_PUBLIC,
+                'version' => FieldProfile::P0_PUBLIC,
+            ],
+            'benefit_transaction' => [
+                'id' => FieldProfile::P0_PUBLIC,
+                'enrollment_id' => FieldProfile::P0_PUBLIC,
+                'employment_id' => FieldProfile::P0_PUBLIC,
+                'period' => FieldProfile::P0_PUBLIC,
+                'base_amount_cents' => FieldProfile::P3_RESTRICTED,
+                'employee_amount_cents' => FieldProfile::P3_RESTRICTED,
+                'employer_amount_cents' => FieldProfile::P3_RESTRICTED,
+                'total_amount_cents' => FieldProfile::P3_RESTRICTED,
+                'payroll_run_id' => FieldProfile::P1_INTERNAL,
+                'entry_type' => FieldProfile::P0_PUBLIC,
+                'reversal_of_id' => FieldProfile::P0_PUBLIC,
+                'reversed_by_id' => FieldProfile::P0_PUBLIC,
+                'reason' => FieldProfile::P1_INTERNAL,
+                'source_hash' => FieldProfile::P1_INTERNAL,
+                'status' => FieldProfile::P0_PUBLIC,
             ],
             'salary_adjustment' => [
                 'id' => FieldProfile::P0_PUBLIC,

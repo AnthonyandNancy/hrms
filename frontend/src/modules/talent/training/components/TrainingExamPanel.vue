@@ -11,8 +11,10 @@ import {
   examStatusLabel,
   listExams,
   publishExam,
+  submitExamAttempt,
   trainingActionErrorCopy,
   type TrainingExam,
+  type TrainingExamAttempt,
 } from '../api'
 
 const props = defineProps<{
@@ -31,6 +33,12 @@ const errorCodeValue = ref('')
 const errorRequestId = ref<string | null>(null)
 const rows = ref<TrainingExam[]>([])
 const success = ref('')
+const attemptOpen = ref(false)
+const attemptSubmitting = ref(false)
+const attemptError = ref('')
+const attemptExam = ref<TrainingExam | null>(null)
+const attemptResult = ref<TrainingExamAttempt | null>(null)
+const attemptDraft = ref({ enrollmentId: '', score: '' })
 
 const formOpen = ref(false)
 const submitting = ref(false)
@@ -119,6 +127,43 @@ async function submit(): Promise<void> {
   }
 }
 
+function openAttempt(row: TrainingExam): void {
+  if (!canManage.value || row.status !== 'PUBLISHED') return
+  attemptExam.value = row
+  attemptDraft.value = { enrollmentId: '', score: '' }
+  attemptResult.value = null
+  attemptError.value = ''
+  attemptOpen.value = true
+}
+
+async function submitAttempt(): Promise<void> {
+  const exam = attemptExam.value
+  if (exam === null) return
+  const enrollmentId = Number(attemptDraft.value.enrollmentId)
+  const score = Number(attemptDraft.value.score)
+
+  if (!Number.isSafeInteger(enrollmentId) || enrollmentId < 1) {
+    attemptError.value = '请输入有效的报名编号。'
+    return
+  }
+  if (!Number.isSafeInteger(score) || score < 0 || score > exam.maxScore) {
+    attemptError.value = `分数必须是 0 到 ${exam.maxScore} 的整数。`
+    return
+  }
+
+  attemptSubmitting.value = true
+  attemptError.value = ''
+  try {
+    const result = await submitExamAttempt(exam.id, enrollmentId, score)
+    attemptResult.value = result
+    success.value = `考试尝试 #${result.attemptNo} 已记录，${result.passed ? '通过' : '未通过'}。`
+  } catch (reason) {
+    attemptError.value = trainingActionErrorCopy(reason)
+  } finally {
+    attemptSubmitting.value = false
+  }
+}
+
 async function publish(row: TrainingExam): Promise<void> {
   if (!canManage.value || row.status === 'PUBLISHED') return
   try {
@@ -194,13 +239,38 @@ watch(() => [props.sessionId, props.courseId], () => void load(), { immediate: t
                 >
                   发布
                 </button>
-                <span v-else class="training-panel__meta">已冻结</span>
+                <button
+                  v-else
+                  type="button"
+                  class="training-panel__secondary"
+                  :data-testid="`training-exam-attempt-${row.id}`"
+                  @click="openAttempt(row)"
+                >
+                  提交成绩
+                </button>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
     </template>
+
+    <el-dialog v-model="attemptOpen" title="提交考试尝试" width="500px" data-testid="training-attempt-dialog">
+      <div class="training-panel__form">
+        <p class="training-panel__meta">考试 #{{ attemptExam?.id }} · {{ attemptExam?.title }} · 满分 {{ attemptExam?.maxScore }}</p>
+        <label>报名编号<el-input v-model="attemptDraft.enrollmentId" inputmode="numeric" data-testid="training-attempt-enrollment" /></label>
+        <label>得分<el-input v-model="attemptDraft.score" inputmode="numeric" data-testid="training-attempt-score" /></label>
+        <p class="training-panel__meta">只有有效报名且已签到的学员可以提交；成绩来源固定为本次 attempt。</p>
+        <p v-if="attemptError !== ''" class="training-panel__error" role="alert" data-testid="training-attempt-error">{{ attemptError }}</p>
+        <p v-if="attemptResult !== null" class="training-panel__success" role="status" data-testid="training-attempt-result">
+          尝试 #{{ attemptResult.attemptNo }} · {{ attemptResult.score }} 分 · {{ attemptResult.passed ? '通过' : '未通过' }} · 摘要 {{ attemptResult.sourceHash.slice(0, 12) }}
+        </p>
+      </div>
+      <template #footer>
+        <el-button @click="attemptOpen = false">关闭</el-button>
+        <el-button type="primary" :loading="attemptSubmitting" data-testid="training-attempt-submit" @click="submitAttempt">提交成绩</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="formOpen" title="新建考试" width="500px" data-testid="training-exam-dialog">
       <div class="training-panel__form">

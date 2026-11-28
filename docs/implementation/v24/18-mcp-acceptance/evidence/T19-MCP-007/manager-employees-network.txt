@@ -1,0 +1,9 @@
+529. [GET] http://127.0.0.1:5190/v1/me => [200] OK
+531. [GET] http://127.0.0.1:5190/v1/auth/csrf => [200] OK
+532. [GET] http://127.0.0.1:5190/v1/me/capabilities => [200] OK
+533. [GET] http://127.0.0.1:5190/v1/me/permissions => [200] OK
+549. [GET] http://127.0.0.1:5190/v1/employees?as_of=2026-11-28&page=1&page_size=20&include_archived=0 => [200] OK
+550. [GET] http://127.0.0.1:5190/v1/reporting/dashboard => [200] OK
+551. [GET] http://127.0.0.1:5190/v1/engagement/notices?filter=unread => [200] OK
+
+Note: 19 static requests not shown, run with "static" option to see them.

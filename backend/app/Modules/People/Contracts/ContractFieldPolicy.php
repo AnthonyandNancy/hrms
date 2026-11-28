@@ -53,6 +53,9 @@ final class ContractFieldPolicy
         'work_location' => FieldProfile::P1_INTERNAL,
         'probation_end_date' => FieldProfile::P1_INTERNAL,
         'terms_summary' => FieldProfile::P2_SENSITIVE,
+        'agreed_salary_cents' => FieldProfile::P2_SENSITIVE,
+        'agreed_currency' => FieldProfile::P1_INTERNAL,
+        'source_version' => FieldProfile::P1_INTERNAL,
     ];
 
     public function __construct(
@@ -107,13 +110,15 @@ final class ContractFieldPolicy
             $projected['terms_summary'] = null;
         }
 
-        if (in_array('terms_summary', $visibleFields, true)) {
+        $sensitiveVisible = array_values(array_intersect(['terms_summary', 'agreed_salary_cents'], $visibleFields));
+
+        if ($sensitiveVisible !== []) {
             $this->auditor->record(
                 userId: $principal->userId(),
                 capabilityCode: 'people.contract.read',
                 resourceType: 'employment_contract',
                 resourceId: (int) $contract->id,
-                fields: ['terms_summary'],
+                fields: $sensitiveVisible,
                 context: ['profile' => $profile->value, 'access' => 'READ'],
             );
         }

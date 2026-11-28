@@ -1,0 +1,114 @@
+- generic [ref=f2e3]:
+  - link "跳到主要内容" [ref=f2e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - complementary "主导航" [ref=f2e5]:
+    - generic [ref=f2e6]:
+      - generic [aria-hidden] [ref=f2e7]: 澄
+      - generic [ref=f2e8]:
+        - generic [ref=f2e9]: 澄明 HR
+        - generic [ref=f2e10]: Acme China Synthetic
+      - button "收起侧边栏" [expanded] [ref=f2e11] [cursor=pointer]
+    - navigation "V1.1 功能菜单" [ref=f2e15]:
+      - link "我的工作台" [ref=f2e17] [cursor=pointer]:
+        - /url: /workspace
+      - button "仪表盘" [ref=f2e23] [cursor=pointer]
+      - button "系统管理" [ref=f2e32] [cursor=pointer]
+      - button "招聘需求" [ref=f2e42] [cursor=pointer]
+      - generic [ref=f2e50]:
+        - button "候选人" [expanded] [ref=f2e51] [cursor=pointer]
+        - link "候选人列表" [ref=f2e60] [cursor=pointer]:
+          - /url: /recruitment/candidates
+  - generic [ref=f2e65]:
+    - banner [ref=f2e66]:
+      - generic [ref=f2e67]:
+        - paragraph [ref=f2e68]: 澄明科技 · 人力资源
+        - generic [ref=f2e69]: 候选人列表
+      - link "查看未读公告" [ref=f2e70] [cursor=pointer]:
+        - /url: /notices
+      - button "打开账户菜单" [ref=f2e78] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f2e79]: T1
+        - generic [ref=f2e80]: t18.recruiter
+    - main [ref=f2e85]:
+      - generic [ref=f2e86]:
+        - generic [ref=f2e87]:
+          - generic [ref=f2e88]:
+            - heading "候选人管道" [level=1] [ref=f2e89]
+            - paragraph [ref=f2e90]: 按真实招聘阶段查看候选人；阶段移动需二次确认并携带幂等键，已入职由录用转入职动作产生。
+          - generic [ref=f2e91]:
+            - group "候选人视图" [ref=f2e92]:
+              - button "流程看板" [ref=f2e93] [cursor=pointer]
+              - button "列表" [ref=f2e94] [cursor=pointer]
+            - button "导入简历" [ref=f2e95] [cursor=pointer]
+            - button "刷新" [ref=f2e96] [cursor=pointer]
+        - generic [ref=f2e97]:
+          - region "候选人筛选" [ref=f2e98]:
+            - generic [ref=f2e99]:
+              - generic [ref=f2e100]: 招聘需求
+              - generic [ref=f2e102] [cursor=pointer]:
+                - generic:
+                  - combobox "招聘需求 请选择" [ref=f2e104]
+                  - generic [ref=f2e105]: 请选择
+            - generic [ref=f2e110]:
+              - generic [ref=f2e111]: 搜索
+              - textbox "搜索" [ref=f2e114]:
+                - /placeholder: 候选人姓名
+            - generic [ref=f2e115]:
+              - generic [ref=f2e116] [cursor=pointer]:
+                - generic [ref=f2e117]:
+                  - checkbox "只看人才库 仅看人才库"
+                - generic [ref=f2e119]: 只看人才库
+              - generic [ref=f2e120]: 仅看人才库
+            - button "查询" [ref=f2e121] [cursor=pointer]
+          - region "候选人招聘管道" [ref=f2e122]:
+            - generic [ref=f2e123]:
+              - generic [ref=f2e124]:
+                - generic [ref=f2e125]:
+                  - heading "新简历" [level=2] [ref=f2e126]
+                  - generic [ref=f2e127]: "1"
+                - article [ref=f2e128]:
+                  - generic [ref=f2e129]:
+                    - link "T19 Synthetic Candidate" [ref=f2e130] [cursor=pointer]:
+                      - /url: /recruitment/candidates/1
+                    - generic [ref=f2e131]: 新简历
+                  - paragraph [ref=f2e132]: 来源：SYNTHETIC
+                  - generic [ref=f2e133]:
+                    - generic [ref=f2e134]:
+                      - generic [ref=f2e135]: 移动到阶段
+                      - combobox "移动到阶段" [ref=f2e136]:
+                        - option "新简历"
+                        - option "筛选" [selected]
+                        - option "面试"
+                        - option "offer"
+                        - option "已接受 Offer"
+                        - option "已淘汰"
+                    - button "移动" [ref=f2e137] [cursor=pointer]
+              - generic [ref=f2e138]:
+                - generic [ref=f2e139]:
+                  - heading "筛选" [level=2] [ref=f2e140]
+                  - generic [ref=f2e141]: "0"
+                - paragraph [ref=f2e142]: 暂无候选人
+              - generic [ref=f2e143]:
+                - generic [ref=f2e144]:
+                  - heading "面试" [level=2] [ref=f2e145]
+                  - generic [ref=f2e146]: "0"
+                - paragraph [ref=f2e147]: 暂无候选人
+              - generic [ref=f2e148]:
+                - generic [ref=f2e149]:
+                  - heading "offer" [level=2] [ref=f2e150]
+                  - generic [ref=f2e151]: "0"
+                - paragraph [ref=f2e152]: 暂无候选人
+              - generic [ref=f2e153]:
+                - generic [ref=f2e154]:
+                  - heading "已入职" [level=2] [ref=f2e155]
+                  - generic [ref=f2e156]: "0"
+                - paragraph [ref=f2e157]: 暂无候选人
+              - generic [ref=f2e158]:
+                - generic [ref=f2e159]:
+                  - heading "已淘汰" [level=2] [ref=f2e160]
+                  - generic [ref=f2e161]: "0"
+                - paragraph [ref=f2e162]: 暂无候选人
+          - paragraph [ref=f2e163]: 移动阶段会记录审计；“已入职”不能手工设置，必须通过候选人详情的“录用转入职”完成。
+    - contentinfo [ref=f2e164]:
+      - generic [ref=f2e165]: 澄明科技 HRMS
+      - generic [ref=f2e166]: 审计与导出操作会记录操作者、目的与时间
+      - generic [ref=f2e167]: 构建 b9e21f5

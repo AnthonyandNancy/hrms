@@ -1,0 +1,11 @@
+BEFORE FIX
+POST /v1/users/2/roles
+body: role_code=TRAINING_ADMIN (overlaps existing AUDITOR on COMPANY org.tree.read)
+HTTP 500
+
+SQLSTATE[23000] 1062 Duplicate entry
+'2-iam.session.manage-SELF-0-...-5'
+for key 'authority_bindings.authority_binding_version_unique'
+
+Cause: assignRole inserted each role capability without merging an existing
+binding at the same principal/capability/anchor/valid_from/auth_version.

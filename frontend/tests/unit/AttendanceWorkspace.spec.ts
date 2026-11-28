@@ -71,10 +71,14 @@ function rawDay(overrides: Record<string, unknown> = {}): Record<string, unknown
   }
 }
 
-async function mountPage(capabilities: string[]): Promise<{ wrapper: ReturnType<typeof mount>; router: Router }> {
+async function mountPage(capabilities: string[], employmentId: number | null = 1): Promise<{ wrapper: ReturnType<typeof mount>; router: Router }> {
   const pinia = createPinia()
   setActivePinia(pinia)
-  useSessionStore().$patch({ status: 'authenticated', capabilities })
+  useSessionStore().$patch({
+    status: 'authenticated',
+    capabilities,
+    principal: employmentId === null ? null : { employmentId } as never,
+  })
 
   const router = createRouter({
     history: createMemoryHistory(),
@@ -415,5 +419,16 @@ describe('AttendanceWorkspace states and capability guards', () => {
     const partial = await mountPage(['time.attendance.read'])
     await flushPromises()
     expect(partial.wrapper.get('[data-testid="attendance-partial"]').text()).toContain('考勤投影仍在校准中')
+  })
+})
+
+describe('AttendanceWorkspace no-employment gating', () => {
+  it('does not request self attendance when the principal has no employment', async () => {
+    resource.get.mockResolvedValue({ items: [], total: 0 })
+    const { wrapper } = await mountPage(['time.attendance.read'], null)
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="no-active-employment"]').exists()).toBe(true)
+    expect(daysCallCount()).toBe(0)
   })
 })

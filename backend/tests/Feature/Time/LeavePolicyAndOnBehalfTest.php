@@ -51,6 +51,7 @@ final class LeavePolicyAndOnBehalfTest extends TimeHttpTestCase
             'effective_to' => $to,
             'applies_to_json' => ['scope' => 'COMPANY'],
             'accrual_json' => ['mode' => 'ANNUAL_FIXED', 'minutes_per_year' => 4800],
+            'payroll_treatment' => 'PAID',
             'carryover_json' => null,
             'min_notice_days' => 0,
             'max_consecutive_days' => null,

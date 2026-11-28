@@ -88,6 +88,63 @@ final class RecruitmentWorkspaceTest extends TalentTestCase
         $this->assertNotSame('', $response->json('data.items.0.opened_at'));
     }
 
+    public function test_org_scoped_requisition_and_candidate_reads_hide_other_org_rows(): void
+    {
+        $visibleOrg = $this->peopleScenario->orgUnit('SCOPE-VISIBLE-ORG');
+        $hiddenOrg = $this->peopleScenario->orgUnit('SCOPE-HIDDEN-ORG');
+        $visibleReq = Requisition::query()->create([
+            'org_unit_id' => (int) $visibleOrg->id,
+            'requisition_no' => 'REQ-SCOPE-VISIBLE',
+            'title' => '可见招聘需求',
+            'status' => 'APPROVED',
+            'headcount' => 1,
+            'recorded_at' => $this->clock->now(),
+        ]);
+        $hiddenReq = Requisition::query()->create([
+            'org_unit_id' => (int) $hiddenOrg->id,
+            'requisition_no' => 'REQ-SCOPE-HIDDEN',
+            'title' => '不可见招聘需求',
+            'status' => 'APPROVED',
+            'headcount' => 1,
+            'recorded_at' => $this->clock->now(),
+        ]);
+        $visibleCandidate = Candidate::query()->create([
+            'display_name' => '可见候选人',
+            'status' => 'NEW',
+            'recorded_at' => $this->clock->now(),
+        ]);
+        $hiddenCandidate = Candidate::query()->create([
+            'display_name' => '不可见候选人',
+            'status' => 'NEW',
+            'recorded_at' => $this->clock->now(),
+        ]);
+        foreach ([[$visibleCandidate, $visibleReq], [$hiddenCandidate, $hiddenReq]] as [$candidate, $requisition]) {
+            CandidateApplication::query()->create([
+                'candidate_id' => (int) $candidate->id,
+                'requisition_id' => (int) $requisition->id,
+                'stage' => 'NEW',
+                'status' => 'ACTIVE',
+                'source' => 'TEST',
+                'recorded_at' => $this->clock->now(),
+            ]);
+        }
+
+        $this->authorizer->constrainedOrgUnitId = (int) $visibleOrg->id;
+
+        $this->getJson('/v1/recruitment/requisitions')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.items')
+            ->assertJsonPath('data.items.0.requisition_id', (int) $visibleReq->id);
+
+        $this->getJson('/v1/recruitment/workspace/candidates')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.items')
+            ->assertJsonPath('data.items.0.candidate_id', (int) $visibleCandidate->id);
+
+        $this->getJson('/v1/recruitment/candidates/'.(int) $hiddenCandidate->id.'/interviews')
+            ->assertNotFound();
+    }
+
     public function test_requisition_can_be_edited_then_closed_with_manage_capability(): void
     {
         $org = $this->peopleScenario->orgUnit('WORKSPACE-REQ-EDIT-ORG');

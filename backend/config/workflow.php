@@ -19,9 +19,13 @@ return [
     // the owning module keeps the writer and verifies the approved case.
     'domain_effect_handlers' => [
         'people.employee.change.apply' => App\Modules\People\Services\EmployeeProfileChangeEffectHandler::class,
+        App\Modules\Time\EffectHandlers\LeaveApprovalEffectHandler::class,
     ],
 
     'effect_types' => [
         'people.employee.change.apply',
+        'time.leave.apply',
+        'time.leave.reverse',
+        'time.leave.pending.release',
     ],
 ];

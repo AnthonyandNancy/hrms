@@ -6,6 +6,7 @@ namespace App\Modules\Time\Services;
 
 use App\Modules\Time\Contracts\PayrollPeriodLockReader;
 use App\Modules\Time\Models\OvertimeRecord;
+use App\Modules\Time\Models\OvertimeRequest;
 use App\Modules\Time\Models\OvertimeSettlement;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
@@ -33,6 +34,8 @@ final class OvertimeSettlementService
         private readonly Clock $clock,
         private readonly AuditRecorder $audit,
         private readonly Container $container,
+        private readonly PayrollFreezeGuard $freezeGuard,
+        private readonly TimeoffLedgerService $timeoffLedger,
     ) {}
 
     /**
@@ -70,6 +73,22 @@ final class OvertimeSettlementService
             }
 
             $period = $record->business_date->format('Y-m');
+            $this->freezeGuard->lockAndAssertOpen($period);
+
+            $confirmedRequest = OvertimeRequest::query()
+                ->where('overtime_record_id', $recordId)
+                ->first();
+            $policySnapshot = $confirmedRequest !== null ? (array) ($confirmedRequest->policy_snapshot_json ?? []) : [];
+            $policyAllowed = match ($method) {
+                'PAY' => (bool) ($policySnapshot['allow_pay'] ?? true),
+                'TIMEOFF' => (bool) ($policySnapshot['allow_timeoff'] ?? true),
+            };
+            if (! $policyAllowed) {
+                throw new ConflictException('The confirmed overtime policy does not allow this settlement method.', [
+                    'reason' => 'OVERTIME_METHOD_NOT_ALLOWED',
+                    'method' => $method,
+                ]);
+            }
 
             if ($method === 'PAY' && $this->isFrozen((int) $record->employment_id, $period)) {
                 throw new ConflictException(
@@ -104,6 +123,11 @@ final class OvertimeSettlementService
                 }
 
                 return $this->payload($existing, true);
+            }
+
+            if ($method === 'TIMEOFF') {
+                $entry = $this->timeoffLedger->earnFromSettlement($settlement, $record->business_date->format('Y-m-d'), $actorUserId);
+                $settlement->forceFill(['leave_ledger_entry_id' => (int) $entry->id])->save();
             }
 
             $this->audit->record($actorUserId, 'time.overtime.settled', 'overtime_settlement', (int) $settlement->id, after: [
@@ -154,6 +178,7 @@ final class OvertimeSettlementService
             'employment_id' => (int) $settlement->employment_id,
             'method' => (string) $settlement->method,
             'minutes' => (int) $settlement->minutes,
+            'timeoff_ledger_entry_id' => $settlement->leave_ledger_entry_id !== null ? (int) $settlement->leave_ledger_entry_id : null,
             'replayed' => $replayed,
         ];
     }

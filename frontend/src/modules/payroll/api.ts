@@ -14,6 +14,7 @@ export type PayrollRunStatus =
   | 'DRAFT'
   | 'INPUT_LOCKED'
   | 'CALCULATED'
+  | 'CALCULATED_WITH_BLOCKERS'
   | 'REVIEWED'
   | 'APPROVED'
   | 'PUBLISHED'
@@ -23,7 +24,7 @@ export type PayrollRunStatus =
 
 export type PayrollRunType = 'REGULAR' | 'CORRECTION' | 'OFF_CYCLE' | 'BONUS'
 
-export type PayrollEmployeeStatus = 'PENDING' | 'CALCULATED' | 'EXCLUDED' | 'FAILED'
+export type PayrollEmployeeStatus = 'PENDING' | 'CALCULATED' | 'BLOCKED' | 'EXCLUDED' | 'FAILED'
 
 export type PayrollRunSummary = {
   id: number
@@ -82,6 +83,20 @@ export type PayrollRunDetail = PayrollRunSummary & {
   inputHash: string | null
   snapshotVersion: number
   reopenCount: number
+  correctionBaselineRunId?: number | null
+  correctionSequence?: number
+  correctionStatus?: 'OPEN' | 'VOID'
+  correctionVoidedAt?: string | null
+  correctionVoidReason?: string | null
+  priorCorrectionIds?: number[]
+  correctionTargetNetCents?: number | null
+  correctionBaselineNetCents?: number | null
+  correctionDeltaNetCents?: number | null
+  correctionCumulativeNetCents?: number | null
+  state?: string
+  version?: number
+  sourceVersion?: string | null
+  allowedActions?: string[]
   employees: PayrollEmployee[]
 }
 
@@ -113,6 +128,7 @@ export type PayrollReconciliation = {
   netCents: number
   employerCostCents: number
   differences: Array<Record<string, unknown>>
+  chain: Record<string, unknown>
   passed: boolean
 }
 
@@ -132,6 +148,7 @@ export type PayrollAction =
   | 'mark-paid'
   | 'close'
   | 'cancel'
+  | 'reopen'
 
 export type PayrollExportKind = 'bank' | 'tax'
 
@@ -146,6 +163,7 @@ const RUN_STATUSES: readonly PayrollRunStatus[] = [
   'DRAFT',
   'INPUT_LOCKED',
   'CALCULATED',
+  'CALCULATED_WITH_BLOCKERS',
   'REVIEWED',
   'APPROVED',
   'PUBLISHED',
@@ -230,7 +248,7 @@ export function normalisePayrollEmployee(raw: unknown): PayrollEmployee {
   const row = record(raw, 'employee')
   const status = text(row.status, 'employee.status').toUpperCase() as PayrollEmployeeStatus
 
-  if (!['PENDING', 'CALCULATED', 'EXCLUDED', 'FAILED'].includes(status)) {
+  if (!['PENDING', 'CALCULATED', 'BLOCKED', 'EXCLUDED', 'FAILED'].includes(status)) {
     contractError('employee.status')
   }
 
@@ -266,6 +284,28 @@ export function normalisePayrollRunDetail(raw: unknown): PayrollRunDetail {
     inputHash: nullableText(row.input_hash, 'input_hash'),
     snapshotVersion: requiredInteger(row.snapshot_version, 'snapshot_version'),
     reopenCount: requiredInteger(row.reopen_count, 'reopen_count'),
+    correctionBaselineRunId: nullableInteger(row.correction_baseline_run_id, 'correction_baseline_run_id'),
+    correctionSequence: row.correction_sequence === undefined
+      ? 1
+      : requiredInteger(row.correction_sequence, 'correction_sequence'),
+    correctionStatus: row.correction_status === 'VOID' ? 'VOID' : 'OPEN',
+    correctionVoidedAt: nullableText(row.correction_voided_at, 'correction_voided_at'),
+    correctionVoidReason: nullableText(row.correction_void_reason, 'correction_void_reason'),
+    priorCorrectionIds: Array.isArray(row.prior_correction_ids)
+      ? row.prior_correction_ids.map((id, index) => requiredInteger(id, `prior_correction_ids.${index}`))
+      : [],
+    correctionTargetNetCents: nullableInteger(row.correction_target_net_cents, 'correction_target_net_cents'),
+    correctionBaselineNetCents: nullableInteger(row.correction_baseline_net_cents, 'correction_baseline_net_cents'),
+    correctionDeltaNetCents: nullableInteger(row.correction_delta_net_cents, 'correction_delta_net_cents'),
+    correctionCumulativeNetCents: nullableInteger(row.correction_cumulative_net_cents, 'correction_cumulative_net_cents'),
+    state: typeof row.state === 'string' ? row.state : undefined,
+    version: typeof row.version === 'number' && Number.isSafeInteger(row.version) ? row.version : undefined,
+    sourceVersion: row.source_version === null || row.source_version === undefined
+      ? undefined
+      : nullableText(row.source_version, 'source_version'),
+    allowedActions: row.allowed_actions === undefined
+      ? undefined
+      : listOf(row.allowed_actions, 'allowed_actions').map((value, index) => text(value, `allowed_actions.${index}`)),
     employees: listOf(row.employees, 'employees').map(normalisePayrollEmployee),
   }
 }
@@ -350,6 +390,7 @@ export function normalisePayrollReconciliation(raw: unknown): PayrollReconciliat
     netCents: requiredInteger(row.net_cents, 'net_cents'),
     employerCostCents: requiredInteger(row.employer_cost_cents, 'employer_cost_cents'),
     differences: differences as Array<Record<string, unknown>>,
+    chain: isRecord(row.chain) ? row.chain : {},
     passed: row.passed === true,
   }
 }
@@ -399,6 +440,45 @@ export function newPayrollIdempotencyKey(prefix: string): string {
       ? crypto.randomUUID()
       : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
   return `payroll-${prefix}-${suffix}`.slice(0, 128)
+}
+
+export async function voidPayrollCorrection(
+  id: number,
+  reason: string,
+  idempotencyKey = newPayrollIdempotencyKey('correction-void'),
+): Promise<PayrollRunDetail> {
+  return normalisePayrollRunDetail(await resourcePost<unknown>(
+    `/v1/payroll/runs/${id}/corrections/void`,
+    { reason },
+    { idempotencyKey },
+  ))
+}
+
+export async function createPayrollCorrection(
+  runId: number,
+  period: string,
+  reason: string,
+  idempotencyKey = newPayrollIdempotencyKey('correction'),
+): Promise<PayrollRunDetail> {
+  return normalisePayrollRunDetail(await resourcePost<unknown>(
+    `/v1/payroll/runs/${runId}/corrections`,
+    { period, reason },
+    { idempotencyKey },
+  ))
+}
+
+export async function assignPayrollRunMember(
+  runId: number,
+  userId: number,
+  memberRole: string,
+  reason: string,
+  idempotencyKey = newPayrollIdempotencyKey('member'),
+): Promise<unknown> {
+  return resourcePost<unknown>(
+    `/v1/payroll/runs/${runId}/members`,
+    { user_id: userId, member_role: memberRole, reason },
+    { idempotencyKey },
+  )
 }
 
 export async function runPayrollAction(
@@ -484,6 +564,8 @@ export type MyPayslip = {
   runId: number
   employmentId: number
   version: number
+  period?: string | null
+  payDate?: string | null
   publishedAt: string | null
   grossCents?: number
   deductionsCents?: number
@@ -589,6 +671,88 @@ export async function retirePayrollItem(
   return normalisePayrollItem(
     await resourcePost<unknown>(`/v1/payroll/items/${itemId}/retire`, { reason }, { idempotencyKey }),
   )
+}
+
+export type PayrollRuleVersionRecord = {
+  id: number
+  schemeItemId: number
+  version: number
+  ast: Record<string, unknown>
+  stage: string
+  dependencies: number[]
+  roundingMode: string
+  unit: string
+  engineVersion: string
+  hash: string
+  status: 'DRAFT' | 'PUBLISHED' | 'RETIRED'
+  publishedBy: number | null
+  publishedAt: string | null
+  retireReason: string | null
+}
+
+function normalisePayrollRuleVersion(raw: unknown): PayrollRuleVersionRecord {
+  const row = record(raw, 'payroll_rule_version')
+  const ast = row.ast
+  if (!isRecord(ast)) contractError('payroll_rule_version.ast')
+  return {
+    id: requiredInteger(row.id, 'payroll_rule_version.id'),
+    schemeItemId: requiredInteger(row.scheme_item_id, 'payroll_rule_version.scheme_item_id'),
+    version: requiredInteger(row.version, 'payroll_rule_version.version'),
+    ast,
+    stage: text(row.stage, 'payroll_rule_version.stage'),
+    dependencies: Array.isArray(row.dependencies) ? row.dependencies.map((value) => requiredInteger(value, 'payroll_rule_version.dependencies')) : [],
+    roundingMode: text(row.rounding_mode, 'payroll_rule_version.rounding_mode'),
+    unit: text(row.unit, 'payroll_rule_version.unit'),
+    engineVersion: text(row.engine_version, 'payroll_rule_version.engine_version'),
+    hash: text(row.hash, 'payroll_rule_version.hash'),
+    status: row.status === 'PUBLISHED' ? 'PUBLISHED' : row.status === 'RETIRED' ? 'RETIRED' : 'DRAFT',
+    publishedBy: nullableInteger(row.published_by, 'payroll_rule_version.published_by'),
+    publishedAt: nullableText(row.published_at, 'payroll_rule_version.published_at'),
+    retireReason: nullableText(row.retire_reason, 'payroll_rule_version.retire_reason'),
+  }
+}
+
+export async function listPayrollRuleVersions(schemeItemId: number): Promise<PayrollRuleVersionRecord[]> {
+  const payload = record(await resourceGet<unknown>('/v1/payroll/rules', { scheme_item_id: schemeItemId }), 'payroll_rules')
+  return listOf(payload.items, 'payroll_rules.items').map(normalisePayrollRuleVersion)
+}
+
+export async function createPayrollRuleVersion(
+  schemeItemId: number,
+  ast: Record<string, unknown>,
+  dependencies: number[] = [],
+  stage = 'EARNING',
+  roundingMode = 'HALF_UP',
+  idempotencyKey = newPayrollIdempotencyKey('rule-version'),
+): Promise<PayrollRuleVersionRecord> {
+  return normalisePayrollRuleVersion(await resourcePost<unknown>(
+    `/v1/payroll/scheme-items/${schemeItemId}/rules`,
+    { ast, dependencies, stage, rounding_mode: roundingMode },
+    { idempotencyKey },
+  ))
+}
+
+export async function publishPayrollRuleVersion(
+  id: number,
+  idempotencyKey = newPayrollIdempotencyKey('rule-publish'),
+): Promise<PayrollRuleVersionRecord> {
+  return normalisePayrollRuleVersion(await resourcePost<unknown>(
+    `/v1/payroll/rules/${id}/publish`,
+    {},
+    { idempotencyKey },
+  ))
+}
+
+export async function retirePayrollRuleVersion(
+  id: number,
+  reason: string,
+  idempotencyKey = newPayrollIdempotencyKey('rule-retire'),
+): Promise<PayrollRuleVersionRecord> {
+  return normalisePayrollRuleVersion(await resourcePost<unknown>(
+    `/v1/payroll/rules/${id}/retire`,
+    { reason },
+    { idempotencyKey },
+  ))
 }
 
 export function normalisePayrollScheme(raw: unknown): PayrollSchemeRecord {
@@ -713,6 +877,8 @@ export function normaliseMyPayslip(raw: unknown): MyPayslip {
     runId: requiredInteger(row.run_id, 'payslip.run_id'),
     employmentId: requiredInteger(row.employment_id, 'payslip.employment_id'),
     version: requiredInteger(row.version, 'payslip.version'),
+    period: nullableText(row.period, 'payslip.period'),
+    payDate: nullableText(row.pay_date, 'payslip.pay_date'),
     publishedAt: nullableText(row.published_at, 'payslip.published_at'),
     grossCents: optionalMoney(row, 'gross_cents', 'payslip.gross_cents'),
     deductionsCents: optionalMoney(row, 'deductions_cents', 'payslip.deductions_cents'),
@@ -786,6 +952,7 @@ export const PAYROLL_STATUS_LABELS: Record<PayrollRunStatus, string> = {
   DRAFT: '草稿',
   INPUT_LOCKED: '输入已锁定',
   CALCULATED: '已试算',
+  CALCULATED_WITH_BLOCKERS: '计算有阻断',
   REVIEWED: '已复核',
   APPROVED: '已批准',
   PUBLISHED: '已发布',
@@ -803,6 +970,7 @@ export function payrollStage(status: PayrollRunStatus): PayrollStage {
       return '草稿'
     case 'INPUT_LOCKED':
     case 'CALCULATED':
+    case 'CALCULATED_WITH_BLOCKERS':
     case 'REVIEWED':
       return '已提交'
     case 'APPROVED':
@@ -844,6 +1012,7 @@ export function payrollEmployeeStatusLabel(status: PayrollEmployeeStatus): strin
   return {
     PENDING: '待计算',
     CALCULATED: '已计算',
+    BLOCKED: '输入有阻断',
     EXCLUDED: '已排除',
     FAILED: '计算失败',
   }[status]
@@ -859,6 +1028,7 @@ export function payrollActionLabel(action: PayrollAction): string {
     'mark-paid': '标记发放',
     close: '关闭批次',
     cancel: '取消批次',
+    reopen: '重开批次',
   }[action]
 }
 

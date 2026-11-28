@@ -579,6 +579,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/csrf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recover the current session-bound CSRF token
+         * @description The SPA keeps the raw token in memory only. After a full page reload it
+         *     calls this endpoint to recover a deterministic token bound to the same
+         *     server-side session; the raw token is never stored in localStorage.
+         */
+        get: operations["getSessionCsrfToken"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/logout": {
         parameters: {
             query?: never;
@@ -865,6 +887,23 @@ export interface paths {
         put?: never;
         /** Record a monthly contribution and optional payroll link */
         post: operations["benefitsTransactionsStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/benefits/transactions/{id}/reverse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Append a reversal for a monthly contribution */
+        post: operations["benefitsTransactionsReverse"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1346,8 +1385,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Create a person, employment, assignment and first terms version atomically
-         * @description One transactional business act. A replay with the same Idempotency-Key returns the original employee with `data.replayed = true` and creates no duplicate. Requires capability `people.employee.manage` at COMPANY.
+         * Submit the canonical onboarding Case through the legacy People payload
+         * @description Compatibility facade. The historical payload is mapped to the Lifecycle onboarding payload and submitted as a Workflow Case. The response is always 202 with pending Case metadata; this route never creates Person, Employment, Assignment or Terms rows. Those writes remain exclusive to the approved Onboarding Effect at POST /v1/lifecycle/onboarding. A replay with the same Idempotency-Key returns the same Case with `data.replayed = true`. Requires capability `people.employee.manage` and `lifecycle.onboarding.manage` at COMPANY.
          */
         post: operations["onboardEmployee"];
         delete?: never;
@@ -1679,6 +1718,40 @@ export interface paths {
         put?: never;
         /** Terminate an active contract and append a termination version */
         post: operations["terminateEmploymentContract"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/employment-contracts/{id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Activate a draft contract at its signed start date */
+        post: operations["activateEmploymentContract"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/employments/{employmentId}/contract-versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List scoped employment contract versions for selector and payroll links */
+        get: operations["listEmploymentContractVersions"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2862,6 +2935,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/payroll/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List payroll rule versions for a scheme item */
+        get: operations["payrollRulesIndex"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payroll/scheme-items/{id}/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a draft restricted payroll rule for a scheme item */
+        post: operations["payrollRuleVersionStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payroll/rules/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish a validated payroll rule version */
+        post: operations["payrollRuleVersionPublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payroll/rules/{id}/retire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retire a published payroll rule version */
+        post: operations["payrollRuleVersionRetire"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/payroll/runs": {
         parameters: {
             query?: never;
@@ -2894,6 +3035,23 @@ export interface paths {
         get: operations["payrollv1_payroll_runs_id_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payroll/runs/{id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preassign a payroll run member */
+        post: operations["payrollv1_payroll_runs_id_members_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2996,6 +3154,23 @@ export interface paths {
         get: operations["payrollv1_payroll_runs_id_employees_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payroll/runs/{id}/corrections/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Void an unpaid unpublished correction and allow a retry */
+        post: operations["payrollv1_payroll_runs_id_corrections_void_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3240,6 +3415,41 @@ export interface paths {
         put?: never;
         /** Publish a cycle only when every review is submitted */
         post: operations["publishPerformanceCycle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/performance/bonus-mappings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List performance-to-payroll bonus mappings */
+        get: operations["listPerformanceBonusMappings"];
+        put?: never;
+        /** Create a draft performance bonus mapping */
+        post: operations["createPerformanceBonusMapping"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/performance/bonus-mappings/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a draft performance bonus mapping */
+        post: operations["approvePerformanceBonusMapping"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4811,6 +5021,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/time/overtime/requests/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve or reject a submitted overtime workflow case */
+        post: operations["timeOvertimeRequestsApprove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/time/overtime/timeoff-balances": {
         parameters: {
             query?: never;
@@ -5008,6 +5235,23 @@ export interface paths {
         put?: never;
         /** Publish a draft exam version, permanently freezing its content */
         post: operations["trainingExamsPublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/training/exams/{id}/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit a training exam attempt only for an enrolled, checked-in learner */
+        post: operations["trainingExamAttemptStore"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5527,6 +5771,9 @@ export interface components {
             } | null;
             legal_basis: string | null;
             version: number;
+            /** @enum {string} */
+            payroll_treatment?: "PAID" | "PARTIAL" | "UNPAID" | "UNRESOLVED";
+            paid_ratio_scaled?: number | null;
         };
         OvertimeRecordCatalog: {
             id: number;
@@ -5615,6 +5862,11 @@ export interface components {
                 [key: string]: unknown;
             }[];
             actions: string[];
+            action_definitions?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                }[];
+            };
             field_capabilities: string[];
             scope_labels: {
                 anchor_type: string;
@@ -5724,12 +5976,16 @@ export interface components {
                 effective_from?: string | null;
             };
         };
-        OnboardedEmployee: {
-            person_id: number;
-            employment_id: number;
-            employee_no: string;
-            assignment_id: number;
-            terms_id: number;
+        /** @description Pending Lifecycle onboarding Case. No Person, Employment, Assignment or Terms row exists until the canonical Onboarding Effect is applied. */
+        PendingOnboardingCase: {
+            case_id: number;
+            case_no: string;
+            /** @enum {string} */
+            case_type: "ONBOARDING";
+            application_status: string;
+            effect_status: string;
+            /** @enum {string} */
+            canonical_endpoint: "/v1/lifecycle/onboarding";
             replayed: boolean;
         };
         DepartmentWriteRequest: {
@@ -5760,7 +6016,7 @@ export interface components {
             value: number;
             unit: string;
             /** @enum {string} */
-            status: "AVAILABLE" | "UNAVAILABLE";
+            status: "AVAILABLE" | "UNAVAILABLE" | "UNCONFIGURED" | "FORBIDDEN";
             reason: string | null;
             trend: string | null;
             /** @enum {string} */
@@ -5994,6 +6250,12 @@ export interface components {
                 db: boolean;
                 cache: boolean;
                 storage: boolean;
+                /** @description Present on readiness probes; true when no migration is pending. */
+                migrations?: boolean;
+                /** @description Present on readiness probes; true when the single installation completed with an administrator. */
+                installation?: boolean;
+                /** @description Present on readiness probes; true when exactly one active privileged administrator exists. */
+                administrator?: boolean;
             };
             /** Format: date-time */
             time: string;
@@ -6950,6 +7212,11 @@ export interface components {
                         [key: string]: unknown;
                     }[];
                 }[];
+                action_definitions?: {
+                    [key: string]: {
+                        [key: string]: unknown;
+                    }[];
+                };
             };
             request_id: string;
         };
@@ -6962,6 +7229,7 @@ export interface components {
             code: string;
             name: string;
             is_template: boolean;
+            version: number;
             purpose: string | null;
             /** Format: date-time */
             expires_at: string | null;
@@ -7099,6 +7367,10 @@ export interface components {
             status: string;
             attempts: number;
             requires_escalation: boolean;
+            reversal_of_id?: number | null;
+            reversal_reason?: string | null;
+            /** Format: date */
+            effective_on?: string | null;
         };
         CaseSummary: {
             id: number;
@@ -7303,7 +7575,7 @@ export interface components {
             /** @enum {string} */
             run_type: "REGULAR" | "CORRECTION" | "OFF_CYCLE" | "BONUS";
             /** @enum {string} */
-            status: "DRAFT" | "INPUT_LOCKED" | "CALCULATED" | "REVIEWED" | "APPROVED" | "PUBLISHED" | "PAID" | "CLOSED" | "CANCELLED";
+            status: "DRAFT" | "INPUT_LOCKED" | "CALCULATED" | "CALCULATED_WITH_BLOCKERS" | "REVIEWED" | "APPROVED" | "PUBLISHED" | "PAID" | "CLOSED" | "CANCELLED";
             correction_of_run_id: number | null;
             /** Format: date */
             pay_date: string;
@@ -7318,7 +7590,7 @@ export interface components {
         PayrollRunEmployee: {
             employment_id: number;
             /** @enum {string} */
-            status: "PENDING" | "CALCULATED" | "EXCLUDED" | "FAILED";
+            status: "PENDING" | "CALCULATED" | "BLOCKED" | "EXCLUDED" | "FAILED";
             failure_reason: string | null;
             gross_cents?: number;
             taxable_cents?: number;
@@ -7338,15 +7610,42 @@ export interface components {
             posting_period: string;
             /** Format: date-time */
             cutoff_at: string;
+            correction_baseline_run_id?: number | null;
+            correction_sequence?: number;
+            prior_correction_ids?: number[];
+            correction_target_net_cents?: number | null;
+            correction_baseline_net_cents?: number | null;
+            correction_delta_net_cents?: number | null;
+            correction_cumulative_net_cents?: number | null;
             prepared_by: number;
             reviewed_by: number | null;
             approved_by: number | null;
             published_by: number | null;
+            /** @enum {string} */
+            payslip_status?: "UNPUBLISHED" | "PUBLISHED";
+            /** @enum {string} */
+            disbursement_status?: "NOT_REGISTERED" | "REGISTERED";
+            disbursement_reference?: string | null;
+            members?: {
+                user_id: number;
+                /** @enum {string} */
+                member_role: "PREPARER" | "REVIEWER" | "APPROVER" | "PUBLISHER" | "DISBURSER";
+                assigned_by: number;
+                reason: string;
+            }[];
             input_hash: string | null;
             snapshot_version: number;
             reopen_count: number;
             employee_count: number;
             employees: components["schemas"]["PayrollRunEmployee"][];
+            /** @description Server-owned payroll run state for object action projection. */
+            state?: string;
+            /** @description Optimistic object version used by detail actions. */
+            version?: number;
+            /** @description Immutable source/snapshot hash, when available. */
+            source_version?: string | null;
+            /** @description Server-computed action keys permitted for this object and principal. */
+            allowed_actions?: string[];
         };
         PayrollRunPage: {
             items: components["schemas"]["PayrollRunSummary"][];
@@ -7471,6 +7770,11 @@ export interface components {
             publishedAt: string | null;
             /** Format: date-time */
             retractedAt: string | null;
+            /**
+             * Format: date-time
+             * @description UTC instant after which the notice and any notification link become unreadable.
+             */
+            expiresAt: string | null;
             authorName: string | null;
             requiresAck: boolean;
             acknowledged: boolean;
@@ -7484,10 +7788,25 @@ export interface components {
         Notification: {
             id: number;
             type: string;
+            /** @description Identifier-only. Empty when live re-authorization marks the notification invalid. */
             payload: {
                 [key: string]: unknown;
             };
             read: boolean;
+            /** @description False after the referenced notice/payslip is retracted, expired or no longer in the caller's scope. */
+            valid: boolean;
+            invalidReason: string | null;
+            /** @description Latest provider receipt for this in-app notification. Absent ledger evidence is null, never a synthetic SENT. */
+            delivery?: {
+                id?: number;
+                /** @enum {string} */
+                status?: "PENDING" | "SENT" | "FAILED";
+                attempts?: number;
+                provider_message_id?: string | null;
+                last_error?: string | null;
+                /** Format: date-time */
+                sent_at?: string | null;
+            } | null;
             /** Format: date-time */
             createdAt: string | null;
         };
@@ -7644,6 +7963,19 @@ export interface components {
             /** @default CNY */
             currency: string;
             salary_scheme_code?: string | null;
+            /** @description Immutable contract version owned by People/Lifecycle. */
+            contract_version_id?: number | null;
+            /** @description Published Payroll scheme resolved for this employee. */
+            payroll_scheme_id?: number | null;
+            /** @description Client value is ignored; server stores the scheme's published version. */
+            payroll_scheme_version?: number | null;
+            parameter_overrides?: {
+                [key: string]: string | number | boolean | null;
+            } | null;
+            /** Format: date */
+            effective_to?: string | null;
+            /** @enum {string} */
+            status?: "DRAFT" | "PENDING_APPROVAL" | "SCHEDULED" | "ACTIVE" | "SUPERSEDED" | "ENDED";
         };
         SalaryAdjustmentCreateRequest: {
             employment_id: number;
@@ -7666,8 +7998,21 @@ export interface components {
             effective_from: string;
             currency: string;
             salary_scheme_code?: string | null;
+            contract_version_id?: number | null;
+            /** Format: date */
+            effective_to?: string | null;
+            /** @enum {string} */
+            status?: "DRAFT" | "PENDING_APPROVAL" | "SCHEDULED" | "ACTIVE" | "SUPERSEDED" | "ENDED";
+            payroll_scheme_id?: number | null;
+            payroll_scheme_version?: number | null;
+            content_hash?: string | null;
+            supersedes_id?: number | null;
             /** @description Base salary in minor currency units. Omitted when the caller is not a P3 field holder. */
             base_salary_cents?: number;
+            /** @description Omitted together with P3 amounts when the caller lacks the field profile. */
+            parameter_overrides?: {
+                [key: string]: string | number | boolean | null;
+            };
             created_by?: number;
             /** Format: date-time */
             created_at?: string | null;
@@ -7788,6 +8133,10 @@ export interface components {
             /** @enum {string} */
             status: "CLOSED" | "REOPENED";
             replayed: boolean;
+            fact_version: number | null;
+            fact_version_id?: number | null;
+            source_hash: string | null;
+            exception_count: number;
         };
         AttendanceRuleConfig: {
             /** @enum {string} */
@@ -7843,6 +8192,10 @@ export interface components {
             /** Format: date-time */
             reopened_at?: string | null;
             reopen_reason?: string | null;
+            current_fact_version_id?: number | null;
+            fact_version?: number | null;
+            source_hash?: string | null;
+            exception_count?: number | null;
         };
         AttendanceDevice: {
             id: number;
@@ -8232,6 +8585,7 @@ export interface components {
             /** @enum {string} */
             status: "PENDING" | "SENT" | "FAILED";
             attempts: number;
+            provider_message_id: string | null;
             last_error: string | null;
             /** Format: date-time */
             sent_at: string | null;
@@ -8279,6 +8633,8 @@ export interface components {
                 /** @description Required when the capability is a page action. */
                 page_code?: string;
             }[];
+            /** @description Required by new clients; stale values return 409 ROLE_AUTHORIZATION_VERSION_CONFLICT. */
+            expected_version?: number;
             reason?: string | null;
         };
         RoleCapabilitiesRequest: {
@@ -9751,6 +10107,33 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    getSessionCsrfToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current session CSRF token */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: {
+                            csrf_token: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     logout: {
         parameters: {
             query?: never;
@@ -10380,6 +10763,52 @@ export interface operations {
                 };
             };
             /** @description Transaction recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenefitTransactionEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    benefitsTransactionsReverse: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Idempotent replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenefitTransactionEnvelope"];
+                };
+            };
+            /** @description Reversal recorded */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -11366,25 +11795,14 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Idempotent replay of a previous onboarding */
-            200: {
+            /** @description Pending onboarding Case accepted (including idempotent replay) */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope"] & {
-                        data?: components["schemas"]["OnboardedEmployee"];
-                    };
-                };
-            };
-            /** @description Employee onboarded */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope"] & {
-                        data?: components["schemas"]["OnboardedEmployee"];
+                        data?: components["schemas"]["PendingOnboardingCase"];
                     };
                 };
             };
@@ -12492,6 +12910,76 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    activateEmploymentContract: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date */
+                    effective_from: string;
+                    reason?: string | null;
+                    agreed_salary_cents?: number | null;
+                    agreed_currency?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Contract activated and activation history appended */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractLifecycleEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listEmploymentContractVersions: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
+            header?: never;
+            path: {
+                employmentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contract version history for the selected employment */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmploymentContractVersionPageEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     createEmployment: {
         parameters: {
             query?: never;
@@ -13569,7 +14057,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Database, cache and storage are ready. */
+            /** @description Database, cache, storage, migrations, installation state and administrator are ready. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -13579,7 +14067,7 @@ export interface operations {
                 };
             };
             500: components["responses"]["InternalError"];
-            /** @description A required dependency is unavailable. */
+            /** @description A required dependency, migration state, installation state or administrator invariant is unavailable. */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -14750,6 +15238,112 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    payrollRulesIndex: {
+        parameters: {
+            query: {
+                scheme_item_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["Envelope"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    payrollRuleVersionStore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ast: {
+                        [key: string]: unknown;
+                    };
+                    stage?: string;
+                    dependencies?: string[];
+                    /** @enum {string} */
+                    rounding_mode?: "HALF_UP" | "HALF_EVEN" | "DOWN" | "UP";
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["Envelope"];
+            201: components["responses"]["Envelope"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    payrollRuleVersionPublish: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["Envelope"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    payrollRuleVersionRetire: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["Envelope"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     payrollv1_payroll_runs_get: {
         parameters: {
             query?: never;
@@ -14822,6 +15416,35 @@ export interface operations {
                     "application/json": components["schemas"]["PayrollRunDetailEnvelope"];
                 };
             };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    payrollv1_payroll_runs_id_members_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    user_id: number;
+                    /** @enum {string} */
+                    member_role: "REVIEWER" | "APPROVER" | "PUBLISHER" | "DISBURSER";
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            201: components["responses"]["Envelope"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -14994,6 +15617,35 @@ export interface operations {
                     "application/json": components["schemas"]["PayrollRunEmployeePageEnvelope"];
                 };
             };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    payrollv1_payroll_runs_id_corrections_void_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["Envelope"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -15450,6 +16102,82 @@ export interface operations {
                     };
                 };
             };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listPerformanceBonusMappings: {
+        parameters: {
+            query?: {
+                employment_id?: number;
+                period?: string;
+                status?: "DRAFT" | "APPROVED" | "REVOKED";
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["Envelope"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createPerformanceBonusMapping: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    snapshot_id: number;
+                    payroll_item_code: string;
+                    period: string;
+                    amount_cents: number;
+                    mapping_version?: string;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["Envelope"];
+            201: components["responses"]["Envelope"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    approvePerformanceBonusMapping: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["Envelope"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -16905,7 +17633,19 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    candidate_id: number;
+                    requisition_id: number;
+                    base_salary_minor: number;
+                    salary_currency: string;
+                    salary_scheme_code?: string | null;
+                    /** Format: date */
+                    start_date: string;
+                };
+            };
+        };
         responses: {
             201: components["responses"]["Envelope"];
             401: components["responses"]["Unauthenticated"];
@@ -18466,8 +19206,8 @@ export interface operations {
     closeAttendancePeriod: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
             };
             path?: never;
             cookie?: never;
@@ -18501,7 +19241,9 @@ export interface operations {
     reopenAttendancePeriod: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
             path: {
                 id: number;
             };
@@ -19520,6 +20262,46 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    timeOvertimeRequestsApprove: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    decision: "APPROVE" | "REJECT";
+                    comment?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Decided overtime request */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["OvertimeRequest"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     timeOvertimeTimeoffBalancesShow: {
         parameters: {
             query?: {
@@ -20064,6 +20846,39 @@ export interface operations {
                     "application/json": components["schemas"]["TrainingExamEnvelope"];
                 };
             };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    trainingExamAttemptStore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enrollment_id: number;
+                    score: number;
+                    answers?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["Envelope"];
+            201: components["responses"]["Envelope"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

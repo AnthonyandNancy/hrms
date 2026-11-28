@@ -293,6 +293,13 @@ components:
         expiry_rule: { type: [object, "null"], additionalProperties: true }
         legal_basis: { type: [string, "null"] }
         version: { type: integer }
+        payroll_treatment:
+          type: string
+          enum: [PAID, PARTIAL, UNPAID, UNRESOLVED]
+        paid_ratio_scaled:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 999999
     OvertimeRecordCatalog:
       type: object
       required: [id, employment_id, business_date, minutes, status, case_id, settlement_method, settlement_id]
@@ -390,6 +397,13 @@ components:
         actions:
           type: array
           items: { type: string }
+        action_definitions:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: object
+              additionalProperties: true
         field_capabilities:
           type: array
           items: { type: string }
@@ -551,15 +565,19 @@ components:
             work_location: { type: [string, "null"], maxLength: 120 }
             work_schedule: { type: [string, "null"], maxLength: 64 }
             effective_from: { type: [string, "null"], format: date }
-    OnboardedEmployee:
+    PendingOnboardingCase:
       type: object
-      required: [person_id, employment_id, employee_no, assignment_id, terms_id, replayed]
+      description: >
+        Pending Lifecycle onboarding Case. No Person, Employment, Assignment or
+        Terms row exists until the canonical Onboarding Effect is applied.
+      required: [case_id, case_no, case_type, application_status, effect_status, canonical_endpoint, replayed]
       properties:
-        person_id: { type: integer }
-        employment_id: { type: integer }
-        employee_no: { type: string }
-        assignment_id: { type: integer }
-        terms_id: { type: integer }
+        case_id: { type: integer, minimum: 1 }
+        case_no: { type: string, minLength: 1 }
+        case_type: { type: string, enum: [ONBOARDING] }
+        application_status: { type: string }
+        effect_status: { type: string }
+        canonical_endpoint: { type: string, enum: ["/v1/lifecycle/onboarding"] }
         replayed: { type: boolean }
     DepartmentWriteRequest:
       type: object
@@ -630,6 +648,8 @@ components:
           enum:
             - AVAILABLE
             - UNAVAILABLE
+            - UNCONFIGURED
+            - FORBIDDEN
         reason:
           type:
             - string
@@ -1295,6 +1315,15 @@ components:
               type: boolean
             storage:
               type: boolean
+            migrations:
+              type: boolean
+              description: Present on readiness probes; true when no migration is pending.
+            installation:
+              type: boolean
+              description: Present on readiness probes; true when the single installation completed with an administrator.
+            administrator:
+              type: boolean
+              description: Present on readiness probes; true when exactly one active privileged administrator exists.
         time:
           type: string
           format: date-time
@@ -3416,6 +3445,13 @@ components:
                     items:
                       type: object
                       additionalProperties: true
+            action_definitions:
+              type: object
+              additionalProperties:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
         request_id: { type: string }
     RoleCapabilityGrant:
       type: object
@@ -3436,6 +3472,7 @@ components:
         - code
         - name
         - is_template
+        - version
         - purpose
         - expires_at
         - capabilities
@@ -3446,6 +3483,9 @@ components:
           type: string
         is_template:
           type: boolean
+        version:
+          type: integer
+          minimum: 1
         purpose:
           type:
             - string
@@ -3772,6 +3812,19 @@ components:
           type: integer
         requires_escalation:
           type: boolean
+        reversal_of_id:
+          type:
+            - integer
+            - "null"
+        reversal_reason:
+          type:
+            - string
+            - "null"
+        effective_on:
+          type:
+            - string
+            - "null"
+          format: date
     CaseSummary:
       type: object
       required:
@@ -4352,6 +4405,7 @@ components:
             - DRAFT
             - INPUT_LOCKED
             - CALCULATED
+            - CALCULATED_WITH_BLOCKERS
             - REVIEWED
             - APPROVED
             - PUBLISHED
@@ -4393,6 +4447,7 @@ components:
           enum:
             - PENDING
             - CALCULATED
+            - BLOCKED
             - EXCLUDED
             - FAILED
         failure_reason:
@@ -4448,6 +4503,33 @@ components:
             cutoff_at:
               type: string
               format: date-time
+            correction_baseline_run_id:
+              type:
+                - integer
+                - "null"
+            correction_sequence:
+              type: integer
+              minimum: 1
+            prior_correction_ids:
+              type: array
+              items:
+                type: integer
+            correction_target_net_cents:
+              type:
+                - integer
+                - "null"
+            correction_baseline_net_cents:
+              type:
+                - integer
+                - "null"
+            correction_delta_net_cents:
+              type:
+                - integer
+                - "null"
+            correction_cumulative_net_cents:
+              type:
+                - integer
+                - "null"
             prepared_by:
               type: integer
             reviewed_by:
@@ -4462,6 +4544,26 @@ components:
               type:
                 - integer
                 - "null"
+            payslip_status:
+              type: string
+              enum: [UNPUBLISHED, PUBLISHED]
+            disbursement_status:
+              type: string
+              enum: [NOT_REGISTERED, REGISTERED]
+            disbursement_reference:
+              type:
+                - string
+                - "null"
+            members:
+              type: array
+              items:
+                type: object
+                required: [user_id, member_role, assigned_by, reason]
+                properties:
+                  user_id: { type: integer }
+                  member_role: { type: string, enum: [PREPARER, REVIEWER, APPROVER, PUBLISHER, DISBURSER] }
+                  assigned_by: { type: integer }
+                  reason: { type: string }
             input_hash:
               type:
                 - string
@@ -4476,6 +4578,23 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/PayrollRunEmployee"
+            state:
+              type: string
+              description: Server-owned payroll run state for object action projection.
+            version:
+              type: integer
+              minimum: 0
+              description: Optimistic object version used by detail actions.
+            source_version:
+              type:
+                - string
+                - "null"
+              description: Immutable source/snapshot hash, when available.
+            allowed_actions:
+              type: array
+              items:
+                type: string
+              description: Server-computed action keys permitted for this object and principal.
     PayrollRunPage:
       type: object
       required:
@@ -4786,6 +4905,7 @@ components:
         - roleCodes
         - publishedAt
         - retractedAt
+        - expiresAt
         - authorName
         - requiresAck
         - acknowledged
@@ -4826,6 +4946,12 @@ components:
             - string
             - "null"
           format: date-time
+        expiresAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: UTC instant after which the notice and any notification link become unreadable.
         authorName:
           type:
             - string
@@ -4857,6 +4983,8 @@ components:
         - type
         - payload
         - read
+        - valid
+        - invalidReason
         - createdAt
       properties:
         id:
@@ -4866,8 +4994,28 @@ components:
         payload:
           type: object
           additionalProperties: true
+          description: Identifier-only. Empty when live re-authorization marks the notification invalid.
         read:
           type: boolean
+        valid:
+          type: boolean
+          description: False after the referenced notice/payslip is retracted, expired or no longer in the caller's scope.
+        invalidReason:
+          type:
+            - string
+            - "null"
+        delivery:
+          type:
+            - object
+            - "null"
+          description: Latest provider receipt for this in-app notification. Absent ledger evidence is null, never a synthetic SENT.
+          properties:
+            id: { type: integer }
+            status: { type: string, enum: [PENDING, SENT, FAILED] }
+            attempts: { type: integer, minimum: 0 }
+            provider_message_id: { type: [string, 'null'] }
+            last_error: { type: [string, 'null'] }
+            sent_at: { type: [string, 'null'], format: date-time }
         createdAt:
           type:
             - string
@@ -5264,6 +5412,28 @@ components:
             - string
             - "null"
           maxLength: 64
+        contract_version_id:
+          type: [integer, "null"]
+          minimum: 1
+          description: Immutable contract version owned by People/Lifecycle.
+        payroll_scheme_id:
+          type: [integer, "null"]
+          minimum: 1
+          description: Published Payroll scheme resolved for this employee.
+        payroll_scheme_version:
+          type: [integer, "null"]
+          minimum: 1
+          description: Client value is ignored; server stores the scheme's published version.
+        parameter_overrides:
+          type: [object, "null"]
+          additionalProperties:
+            type: [string, integer, boolean, "null"]
+        effective_to:
+          type: [string, "null"]
+          format: date
+        status:
+          type: string
+          enum: [DRAFT, PENDING_APPROVAL, SCHEDULED, ACTIVE, SUPERSEDED, ENDED]
     SalaryAdjustmentCreateRequest:
       type: object
       required: [employment_id, effective_from, base_salary_cents, reason, case_id]
@@ -5317,9 +5487,31 @@ components:
           type:
             - string
             - "null"
+        contract_version_id:
+          type: [integer, "null"]
+        effective_to:
+          type: [string, "null"]
+          format: date
+        status:
+          type: string
+          enum: [DRAFT, PENDING_APPROVAL, SCHEDULED, ACTIVE, SUPERSEDED, ENDED]
+        payroll_scheme_id:
+          type: [integer, "null"]
+        payroll_scheme_version:
+          type: [integer, "null"]
+        content_hash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
+        supersedes_id:
+          type: [integer, "null"]
         base_salary_cents:
           type: integer
           description: Base salary in minor currency units. Omitted when the caller is not a P3 field holder.
+        parameter_overrides:
+          type: object
+          additionalProperties:
+            type: [string, integer, boolean, "null"]
+          description: Omitted together with P3 amounts when the caller lacks the field profile.
         created_by:
           type: integer
         created_at:
@@ -5608,6 +5800,9 @@ components:
         - month
         - status
         - replayed
+        - fact_version
+        - source_hash
+        - exception_count
       properties:
         closure_id:
           type: integer
@@ -5620,6 +5815,22 @@ components:
             - REOPENED
         replayed:
           type: boolean
+        fact_version:
+          type:
+            - integer
+            - "null"
+        fact_version_id:
+          type:
+            - integer
+            - "null"
+        source_hash:
+          type:
+            - string
+            - "null"
+          pattern: ^[a-f0-9]{64}$
+        exception_count:
+          type: integer
+          minimum: 0
     AttendanceRuleConfig:
       type: object
       additionalProperties: false
@@ -5773,6 +5984,24 @@ components:
           type:
             - string
             - "null"
+        current_fact_version_id:
+          type:
+            - integer
+            - "null"
+        fact_version:
+          type:
+            - integer
+            - "null"
+        source_hash:
+          type:
+            - string
+            - "null"
+          pattern: ^[a-f0-9]{64}$
+        exception_count:
+          type:
+            - integer
+            - "null"
+          minimum: 0
     AttendanceDevice:
       type: object
       required:
@@ -6418,7 +6647,7 @@ components:
         active: { type: boolean }
     NotificationDelivery:
       type: object
-      required: [id, delivery_id, template_code, recipient_user_id, channel, status, attempts, last_error, sent_at]
+      required: [id, delivery_id, template_code, recipient_user_id, channel, status, attempts, provider_message_id, last_error, sent_at]
       properties:
         id: { type: integer }
         delivery_id: { type: integer }
@@ -6427,6 +6656,7 @@ components:
         channel: { type: string, enum: [IN_APP, EMAIL, WECHAT_WORK] }
         status: { type: string, enum: [PENDING, SENT, FAILED] }
         attempts: { type: integer, minimum: 0 }
+        provider_message_id: { type: [string, 'null'] }
         last_error: { type: [string, 'null'] }
         sent_at: { type: [string, 'null'], format: date-time }
     CalendarVersion:
@@ -6489,7 +6719,7 @@ components:
             type: string
         capabilities:
           type: array
-          maxItems: 64
+          maxItems: 512
           items:
             type: object
             required: [capability, anchor_type, field_profile]
@@ -6505,6 +6735,10 @@ components:
               page_code:
                 type: string
                 description: Required when the capability is a page action.
+        expected_version:
+          type: integer
+          minimum: 1
+          description: Required by new clients; stale values return 409 ROLE_AUTHORIZATION_VERSION_CONFLICT.
         reason:
           type: [string, "null"]
           maxLength: 255
@@ -9289,6 +9523,60 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: benefit.manage
       x-action-label: 登记福利缴款
+  /v1/benefits/transactions/{id}/reverse:
+    post:
+      operationId: benefitsTransactionsReverse
+      tags:
+        - Benefits
+      summary: Append a reversal for a monthly contribution
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  minLength: 10
+                  maxLength: 500
+      responses:
+        "201":
+          description: Reversal recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BenefitTransactionEnvelope"
+        "200":
+          description: Idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BenefitTransactionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: benefit.manage
+      x-action-label: 冲销福利缴款
   /v1/bindings/{id}:
     delete:
       operationId: deleteBinding
@@ -10619,11 +10907,16 @@ paths:
       operationId: onboardEmployee
       tags:
         - People
-      summary: Create a person, employment, assignment and first terms version atomically
+      summary: Submit the canonical onboarding Case through the legacy People payload
       description: >
-        One transactional business act. A replay with the same Idempotency-Key
-        returns the original employee with `data.replayed = true` and creates no
-        duplicate. Requires capability `people.employee.manage` at COMPANY.
+        Compatibility facade. The historical payload is mapped to the Lifecycle
+        onboarding payload and submitted as a Workflow Case. The response is
+        always 202 with pending Case metadata; this route never creates Person,
+        Employment, Assignment or Terms rows. Those writes remain exclusive to
+        the approved Onboarding Effect at POST /v1/lifecycle/onboarding. A replay
+        with the same Idempotency-Key returns the same Case with
+        `data.replayed = true`. Requires capability `people.employee.manage` and
+        `lifecycle.onboarding.manage` at COMPANY.
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
@@ -10634,8 +10927,8 @@ paths:
             schema:
               $ref: "#/components/schemas/OnboardEmployeeRequest"
       responses:
-        "201":
-          description: Employee onboarded
+        "202":
+          description: Pending onboarding Case accepted (including idempotent replay)
           content:
             application/json:
               schema:
@@ -10644,18 +10937,7 @@ paths:
                   - type: object
                     properties:
                       data:
-                        $ref: "#/components/schemas/OnboardedEmployee"
-        "200":
-          description: Idempotent replay of a previous onboarding
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/Envelope"
-                  - type: object
-                    properties:
-                      data:
-                        $ref: "#/components/schemas/OnboardedEmployee"
+                        $ref: "#/components/schemas/PendingOnboardingCase"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -10666,7 +10948,7 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-capability: people.employee.manage
+      x-capability: people.employee.manage,lifecycle.onboarding.manage
       x-action-label: 员工入职建档
   /v1/employees/{employmentId}/certificates:
     get:
@@ -12253,6 +12535,94 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.terminate
       x-action-label: 终止劳动合同
+  /v1/employment-contracts/{id}/activate:
+    post:
+      operationId: activateEmploymentContract
+      tags:
+        - People
+      summary: Activate a draft contract at its signed start date
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [effective_from]
+              properties:
+                effective_from:
+                  type: string
+                  format: date
+                reason:
+                  type: [string, "null"]
+                  minLength: 3
+                  maxLength: 500
+                agreed_salary_cents:
+                  type: [integer, "null"]
+                  minimum: 0
+                agreed_currency:
+                  type: [string, "null"]
+                  pattern: "^[A-Za-z]{3}$"
+      responses:
+        "200":
+          description: Contract activated and activation history appended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractLifecycleEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.contract.manage
+      x-action-label: 激活劳动合同
+  /v1/employments/{employmentId}/contract-versions:
+    get:
+      operationId: listEmploymentContractVersions
+      tags:
+        - People
+      summary: List scoped employment contract versions for selector and payroll links
+      parameters:
+        - name: employmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Contract version history for the selected employment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmploymentContractVersionPageEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.contract.read
   /v1/employments:
     post:
       tags:
@@ -13659,13 +14029,13 @@ paths:
       security: []
       responses:
         "200":
-          description: Database, cache and storage are ready.
+          description: Database, cache, storage, migrations, installation state and administrator are ready.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthEnvelope"
         "503":
-          description: A required dependency is unavailable.
+          description: A required dependency, migration state, installation state or administrator invariant is unavailable.
           content:
             application/json:
               schema:
@@ -15161,6 +15531,138 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.payslip.read.self
+  /v1/payroll/rules:
+    get:
+      operationId: payrollRulesIndex
+      tags: [Payroll]
+      summary: List payroll rule versions for a scheme item
+      parameters:
+        - name: scheme_item_id
+          in: query
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: payroll.run.read
+  /v1/payroll/scheme-items/{id}/rules:
+    post:
+      operationId: payrollRuleVersionStore
+      tags: [Payroll]
+      summary: Create a draft restricted payroll rule for a scheme item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ast]
+              properties:
+                ast: { type: object, additionalProperties: true }
+                stage: { type: string, maxLength: 24 }
+                dependencies: { type: array, items: { type: string } }
+                rounding_mode: { type: string, enum: [HALF_UP, HALF_EVEN, DOWN, UP] }
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: payroll.run.prepare
+      x-action-label: 创建薪酬规则版本
+  /v1/payroll/rules/{id}/publish:
+    post:
+      operationId: payrollRuleVersionPublish
+      tags: [Payroll]
+      summary: Publish a validated payroll rule version
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: payroll.run.prepare
+      x-action-label: 发布薪酬规则版本
+  /v1/payroll/rules/{id}/retire:
+    post:
+      operationId: payrollRuleVersionRetire
+      tags: [Payroll]
+      summary: Retire a published payroll rule version
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 5, maxLength: 500 }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: payroll.run.prepare
+      x-action-label: 退役薪酬规则版本
   /v1/payroll/runs:
     get:
       operationId: payrollv1_payroll_runs_get
@@ -15249,6 +15751,54 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.run.read
+  /v1/payroll/runs/{id}/members:
+    post:
+      operationId: payrollv1_payroll_runs_id_members_post
+      summary: Preassign a payroll run member
+      tags:
+        - Payroll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, member_role, reason]
+              properties:
+                user_id:
+                  type: integer
+                  minimum: 1
+                member_role:
+                  type: string
+                  enum: [REVIEWER, APPROVER, PUBLISHER, DISBURSER]
+                reason:
+                  type: string
+                  minLength: 5
+                  maxLength: 500
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: payroll.run.prepare
+      x-action-label: 预分配工资批次成员
   /v1/payroll/runs/{id}/approve:
     post:
       operationId: payrollv1_payroll_runs_id_approve_post
@@ -15460,6 +16010,44 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.run.read
+  /v1/payroll/runs/{id}/corrections/void:
+    post:
+      operationId: payrollv1_payroll_runs_id_corrections_void_post
+      tags: [Payroll]
+      summary: Void an unpaid unpublished correction and allow a retry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 10, maxLength: 500 }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: payroll.run.correct
+      x-action-label: 作废未支付更正
   /v1/payroll/runs/{id}/exports/bank:
     get:
       operationId: payrollv1_payroll_runs_id_exports_bank_get
@@ -15987,6 +16575,105 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: performance.result.publish
       x-action-label: 发布绩效结果
+  /v1/performance/bonus-mappings:
+    get:
+      operationId: listPerformanceBonusMappings
+      tags: [Talent]
+      summary: List performance-to-payroll bonus mappings
+      parameters:
+        - name: employment_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: period
+          in: query
+          schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+        - name: status
+          in: query
+          schema: { type: string, enum: [DRAFT, APPROVED, REVOKED] }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100 }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: performance.report.read
+    post:
+      operationId: createPerformanceBonusMapping
+      tags: [Talent]
+      summary: Create a draft performance bonus mapping
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [snapshot_id, payroll_item_code, period, amount_cents]
+              properties:
+                snapshot_id: { type: integer, minimum: 1 }
+                payroll_item_code: { type: string, maxLength: 64 }
+                period: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+                amount_cents: { type: integer, minimum: 0 }
+                mapping_version: { type: string, maxLength: 32 }
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: performance.result.publish
+      x-action-label: 创建绩效奖金映射
+  /v1/performance/bonus-mappings/{id}/approve:
+    post:
+      operationId: approvePerformanceBonusMapping
+      tags: [Talent]
+      summary: Approve a draft performance bonus mapping
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: performance.result.publish
+      x-action-label: 审批绩效奖金映射
   /v1/performance/feedback:
     get:
       operationId: listPerformanceFeedback
@@ -17836,6 +18523,22 @@ paths:
       tags:
         - Talent
       summary: Create an offer approval Case
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [candidate_id, requisition_id, base_salary_minor, salary_currency, start_date]
+              properties:
+                candidate_id: { type: integer, minimum: 1 }
+                requisition_id: { type: integer, minimum: 1 }
+                base_salary_minor: { type: integer, minimum: 0 }
+                salary_currency: { type: string, minLength: 3, maxLength: 3 }
+                salary_scheme_code:
+                  type: [string, "null"]
+                  maxLength: 64
+                start_date: { type: string, format: date }
       responses:
         "201":
           $ref: "#/components/responses/Envelope"
@@ -19753,7 +20456,7 @@ paths:
         - Time
       summary: Close an attendance month for the company
       parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
       requestBody:
         required: true
         content:
@@ -19803,6 +20506,7 @@ paths:
           schema:
             type: integer
             minimum: 1
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
       requestBody:
         required: true
         content:
@@ -21267,6 +21971,54 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: time.overtime.confirm
       x-action-label: 确认加班时长
+  /v1/time/overtime/requests/{id}/approve:
+    post:
+      operationId: timeOvertimeRequestsApprove
+      tags:
+        - Time
+      summary: Approve or reject a submitted overtime workflow case
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [APPROVE, REJECT] }
+                comment: { type: string, maxLength: 500 }
+      responses:
+        "200":
+          description: Decided overtime request
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/OvertimeRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.overtime.manage
+      x-action-label: 审批加班申请
   /v1/time/overtime/timeoff-balances:
     get:
       operationId: timeOvertimeTimeoffBalancesShow
@@ -21949,6 +22701,47 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: training.exam.manage
       x-action-label: 发布培训考试
+  /v1/training/exams/{id}/attempts:
+    post:
+      operationId: trainingExamAttemptStore
+      tags: [Talent]
+      summary: Submit a training exam attempt only for an enrolled, checked-in learner
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enrollment_id, score]
+              properties:
+                enrollment_id: { type: integer, minimum: 1 }
+                score: { type: integer, minimum: 0, maximum: 10000 }
+                answers: { type: object, additionalProperties: true }
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.exam.manage
+      x-action-label: 提交培训考试
   /v1/training/feedback:
     get:
       operationId: trainingFeedbackIndex

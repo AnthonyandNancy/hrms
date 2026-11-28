@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Time;
 
+use App\Modules\Time\Models\AttendanceDay;
 use App\Modules\Time\Models\AttendanceDevice;
 use App\Modules\Time\Models\AttendancePeriodClosure;
 use App\Modules\Time\Models\AttendanceRuleVersion;
@@ -150,6 +151,7 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
         $this->actAsAttendanceSpecialist();
         $this->seedEmployment();
         $this->shift(code: 'DAY');
+        $this->seedFactDay('2026-11-02');
 
         $this->postJson('/v1/time/attendance/closings', [
             'month' => '2026-11',
@@ -179,6 +181,7 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
     public function test_reopening_a_period_requires_a_reason_and_is_audited(): void
     {
         $this->actAsAttendanceSpecialist();
+        $this->seedFactDay('2026-11-02');
 
         $this->postJson('/v1/time/attendance/closings', [
             'month' => '2026-11',
@@ -317,6 +320,11 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
         $this->assertSame('DEV-SYNTH-01', $response->json('data.items.0.code'));
         $this->assertSame('DEGRADED', $response->json('data.items.0.health'));
         $this->assertSame('LIVE', $response->json('data.freshness'));
+
+        // Browser query serializers send the documented boolean as `true`.
+        $this->getJson('/v1/time/attendance/devices?active=true&page=1&page_size=100')
+            ->assertOk()
+            ->assertJsonPath('data.total', 1);
 
         // There is no device write surface at all.
         $this->postJson('/v1/time/attendance/devices', [
@@ -470,6 +478,40 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
         ], ['Idempotency-Key' => 'sch-expired'])
             ->assertStatus(422)
             ->assertJsonPath('data.reason', 'SHIFT_TEMPLATE_NOT_EFFECTIVE');
+    }
+
+    private function seedFactDay(string $date): void
+    {
+        if (! \App\Modules\Time\Models\LegalEntityCalendar::query()->exists()) {
+            $this->calendar();
+        }
+
+        $shift = $this->shift(code: 'CLOSE-FIX');
+        ShiftSchedule::query()->create([
+            'employment_id' => 1,
+            'business_date' => $date,
+            'shift_template_id' => (int) $shift->id,
+            'created_by' => 10,
+            'created_at' => $this->clock->now(),
+        ]);
+
+        AttendanceDay::query()->create([
+            'employment_id' => 1,
+            'business_date' => $date,
+            'shift_template_id' => (int) $shift->id,
+            'scheduled_minutes' => 480,
+            'worked_minutes' => 480,
+            'overtime_minutes' => 0,
+            'late_minutes' => 0,
+            'early_leave_minutes' => 0,
+            'absence_minutes' => 0,
+            'status' => 'NORMAL',
+            'rule_version' => 'TIME-RULES-2026.1',
+            'source_hash' => hash('sha256', 'ops-fixture-'.$date),
+            'calculated_at' => $this->clock->now(),
+            'created_at' => $this->clock->now(),
+            'updated_at' => $this->clock->now(),
+        ]);
     }
 
     private function actAsAttendanceSpecialist(): void

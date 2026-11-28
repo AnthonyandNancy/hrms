@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import MoneyText from '@/components/MoneyText.vue'
 import {
+  PAYROLL_STATUS_LABELS,
   payrollEmployeeStatusLabel,
   type PayrollEmployee,
   type PayrollRunSummary,
@@ -95,7 +96,7 @@ function close(): void {
         </div>
         <div>
           <dt>批次状态</dt>
-          <dd>{{ run.status }}</dd>
+          <dd>{{ PAYROLL_STATUS_LABELS[run.status] }}</dd>
         </div>
       </dl>
 

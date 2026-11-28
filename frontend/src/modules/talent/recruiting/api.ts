@@ -323,6 +323,9 @@ const CANDIDATE_STATUS_LABELS: Readonly<Record<string, string>> = {
   CONVERTED: '已入职',
   HIRED: '已入职',
   REJECTED: '已淘汰',
+  ACTIVE: '有效',
+  EXPIRED: '已过期',
+  REVOKED: '已撤销',
 }
 
 const OFFER_STATUS_LABELS: Readonly<Record<OfferStatus, string>> = {
@@ -377,6 +380,10 @@ export function requisitionStatusLabel(value: string): string {
 
 export function candidateStatusLabel(value: string): string {
   return CANDIDATE_STATUS_LABELS[value] ?? '未知状态'
+}
+
+export function openingStatusLabel(value: string): string {
+  return ({ DRAFT: '草稿', OPEN: '开放中', PUBLISHED: '已发布', CLOSED: '已关闭', FILLED: '已招满', CANCELLED: '已取消' } as Record<string, string>)[value] ?? '未知状态'
 }
 
 export function offerStatusLabel(value: string): string {

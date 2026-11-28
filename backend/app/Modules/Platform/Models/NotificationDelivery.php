@@ -19,11 +19,13 @@ final class NotificationDelivery extends Model
     /** @var list<string> */
     protected $fillable = [
         'notification_outbox_id',
+        'notification_id',
         'template_code',
         'recipient_user_id',
         'channel',
         'status',
         'attempts',
+        'provider_message_id',
         'last_error',
         'sent_at',
     ];
@@ -35,6 +37,7 @@ final class NotificationDelivery extends Model
     {
         return [
             'notification_outbox_id' => 'integer',
+            'notification_id' => 'integer',
             'recipient_user_id' => 'integer',
             'attempts' => 'integer',
             'sent_at' => 'immutable_datetime',

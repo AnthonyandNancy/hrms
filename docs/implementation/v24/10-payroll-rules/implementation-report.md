@@ -1,0 +1,127 @@
+# T10 Payroll Rule Engine
+
+## T10a — restricted AST compiler and Decimal engine
+
+- Added `PayrollRuleCompiler` with a strict node whitelist:
+  const/var, + - * /, neg/abs, round, min/max/clamp, if/compare/and/or/not,
+  progressive tier.
+- Compiler rejects:
+  - unknown node types and properties;
+  - non-decimal constants/rates;
+  - unknown variables;
+  - malformed children and invalid arity;
+  - round scale/mode errors;
+  - non-increasing or unbounded non-final tier bounds;
+  - >500 nodes or >32 depth.
+- Added `CompiledPayrollRule` (canonical hash, node/depth/variable metadata),
+  `CompiledRuleEvaluation` (value + trace) and `PayrollRuleEngine`.
+- Engine uses `App\Shared\Money\Decimal`/bcmath only, short-circuits
+  boolean nodes, evaluates progressive tier slices exactly, and rejects
+  division by zero/clamp inversion/tier negative base.
+- Added unit tests for IF arithmetic, tier 0–1000/1000+ rates, unknown
+  variable/property rejection, division by zero and tier-bound ordering.
+- Verification: 5 unit tests / 8 assertions; Pint and PHPStan green.
+
+Remaining T10: rule-version persistence/publish/retire API, SchemeItem
+FIXED/PERCENT/ATTENDANCE_PRORATE integration, dependency graph, snapshot
+rule hashes and frontend restricted editor.
+
+## T10b — SchemeItem execution
+
+- Added `payroll_scheme_items.formula_json`; scheme item creation, snapshot v2
+  and model casts carry the AST unchanged.
+- CalculationService now executes each item by `calculation`:
+  - FIXED → `amount_cents`;
+  - PERCENT → base salary cents × `rate_scaled` / 1e6, rounded once;
+  - ATTENDANCE_PRORATE → amount × paid minutes / scheduled minutes;
+  - FORMULA_LIMITED → restricted AST compiled/evaluated with base salary,
+    attendance variables and integer-cent variables.
+- Missing rate/Formula and unknown variables fail the employee rather than
+  defaulting the item to zero; failed run becomes `CALCULATED_WITH_BLOCKERS`.
+- Added integration coverage for all four calculations and malformed formula
+  rejection.
+- Verification: payroll/integration/unit 205 tests / 30,858 assertions; Pint,
+  PHPStan and arch green.
+
+Remaining T10: rule version persistence/publish/retire, dependencies, snapshot
+rule hashes, rule editor and API.
+
+## T10c — rule version persistence and published snapshot
+
+- Added `payroll_rule_versions` with scheme item/version, immutable AST,
+  dependencies, stage, rounding, engine version, canonical hash, DRAFT/
+  PUBLISHED/RETIRED status and publish/retire evidence.
+- Added `PayrollRuleVersionService`:
+  - draft creation compiles and hashes the restricted AST;
+  - publish recompiles and rejects hash mismatch/non-draft;
+  - retire is explicit and audited.
+- Snapshot v2 resolves the newest PUBLISHED rule per scheme item and freezes
+  `rule_version`, `rule_hash`, `rule_engine_version` and `rule_ast`.
+- Calculation verifies the frozen AST hash before evaluation, preventing a
+  tampered snapshot or stale rule from being used.
+- Added regression: draft is not used; published AST overrides legacy formula;
+  retired rule returns to legacy fallback; snapshot freezes published hash.
+- Verification: payroll/integration/unit 206 tests / 30,867 assertions; Pint,
+  PHPStan and arch green.
+
+Remaining T10: rule version API/UI, dependency validation/graph and cascade
+publish/retire controls.
+
+## T10d — rule version HTTP surface
+
+- Added real capability-guarded routes:
+  - `GET /v1/payroll/rules?scheme_item_id=...`;
+  - `POST /v1/payroll/scheme-items/{id}/rules`;
+  - `POST /v1/payroll/rules/{id}/publish`;
+  - `POST /v1/payroll/rules/{id}/retire`.
+- Writes use CommandRunner, idempotency and `payroll.run.prepare` on COMPANY;
+  reads use `payroll.run.read`.
+- Added OpenAPI, action manifest entries, page required APIs, permission catalog
+  and legacy route ledger synchronization.
+- Added HTTP regression for draft → list → publish → retire with canonical hash.
+- Verification: governed contract tests 34 tests / 6,263 assertions; Pint,
+  PHPStan and arch green.
+
+Remaining T10: dependency graph validation/cascade controls and frontend
+restricted rule editor.
+
+## T10e — dependency graph and restricted editor
+
+- Dependency ids now have real semantics:
+  - duplicate/non-positive/unknown rule-version ids are rejected;
+  - existing dependency edges are walked and cycles return a conflict;
+  - publishing requires every dependency to be PUBLISHED;
+  - retiring a version with a still-published dependent is rejected.
+- Added `PayrollRuleVersionEditor.vue` to the payroll scheme configuration:
+  - explicit `payroll.run.prepare` gate;
+  - scheme-item id + whitelist AST JSON only, never JS eval;
+  - dependency-id list with client validation;
+  - draft creation, publish, retire and status/hash display through real APIs.
+- Added frontend API normalizers and a real component regression for load/create/
+  publish/retire.
+- Backend regression also covers a deliberately corrupted dependency cycle.
+- Verification: payroll HTTP/version tests 11 tests / 90 assertions; editor +
+  payroll workspace 17 tests; typecheck/lint/Pint/PHPStan green.
+
+Remaining T10 hardening: SUM/currency validation, VALIDATED stage, legacy
+unresolved migration and richer visual AST editor.
+
+## T10f — AC-07 exact sample and hardening
+
+- Added explicit `EMPLOYER_COST` scheme-item execution into `otherEmployerCosts`
+  (previously only earning/deduction categories were consumed).
+- Added `SUM` to the restricted AST/compiler/engine with explicit child
+  collection and unit coverage.
+- Published rule snapshots now freeze `rule_unit`; Calculation rejects any unit
+  other than `CENT`, preserving the single-currency integer-minor-unit contract.
+- Added a real CalculationService acceptance fixture:
+  - zero synthetic tax/insurance fixture;
+  - base salary 948,000 cents;
+  - fixed deduction 140,000;
+  - employer-cost item 50,000;
+  - asserted gross 948,000 / deductions 140,000 / net 808,000 /
+    employer cost 998,000, plus stored run, payslip and line evidence.
+- Historical non-AST FORMULA items without a frozen/published AST continue to
+  fail closed (employee blocked), matching the unresolved-migration policy.
+- Verification: payroll/integration/unit 212 tests / 30,896 assertions; rule
+  unit + AC-07 7 tests / 20 assertions; Pint/PHPStan/arch green.

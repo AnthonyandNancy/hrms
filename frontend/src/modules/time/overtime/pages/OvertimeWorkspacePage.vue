@@ -7,6 +7,7 @@ import { useSessionStore } from '@/stores/session'
 import { formatBusinessDate } from '@/utils/format'
 import ErrorState from '@/components/ErrorState.vue'
 import LoadingState from '@/components/LoadingState.vue'
+import NoActiveEmploymentState from '@/components/NoActiveEmploymentState.vue'
 import OvertimeRequestDrawer from '../components/OvertimeRequestDrawer.vue'
 import OvertimePolicyPanel from '../components/OvertimePolicyPanel.vue'
 import OvertimeConfirmPanel from '../components/OvertimeConfirmPanel.vue'
@@ -84,6 +85,7 @@ const session = useSessionStore()
 const route = useRoute()
 const router = useRouter()
 
+const hasEmployment = computed(() => (session.principal?.employmentId ?? null) !== null)
 const canRead = computed(() => session.can('time.overtime.read'))
 const canRequest = computed(() => session.can('time.overtime.request'))
 const canConfirm = computed(() => session.can('time.overtime.confirm'))
@@ -193,15 +195,17 @@ async function load(): Promise<void> {
   const [policyResult, requestResult, timeoffResult, settlementResult] = await Promise.all([
     getOvertimePolicies().then((value) => ({ ok: true as const, value })).catch((reason: unknown) => ({ ok: false as const, reason })),
     Promise.all([
-      getOvertimeRequests().then((value) => ({ ok: true as const, value })).catch((reason: unknown) => ({ ok: false as const, reason })),
+      (hasEmployment.value
+        ? getOvertimeRequests()
+        : Promise.resolve(null)).then((value) => ({ ok: true as const, value })).catch((reason: unknown) => ({ ok: false as const, reason })),
       teamView.value
         ? getOvertimeRequests({ view: 'team' }).then((value) => ({ ok: true as const, value })).catch((reason: unknown) => ({ ok: false as const, reason }))
         : Promise.resolve({ ok: true as const, value: null }),
     ]),
-    canReadTimeoff.value
+    canReadTimeoff.value && hasEmployment.value
       ? getTimeoffBalances().then((value) => ({ ok: true as const, value })).catch((reason: unknown) => ({ ok: false as const, reason }))
       : Promise.resolve({ ok: true as const, value: null }),
-    canSettle.value
+    canSettle.value && hasEmployment.value
       ? getOvertimeSettlements().then((value) => ({ ok: true as const, value })).catch((reason: unknown) => ({ ok: false as const, reason }))
       : Promise.resolve({ ok: true as const, value: null }),
   ])
@@ -389,7 +393,12 @@ onMounted(() => {
           </p>
         </section>
 
-        <section v-if="tab === 'mine'" class="overtime-workspace__panel" data-testid="overtime-panel-mine">
+        <NoActiveEmploymentState
+          v-if="tab === 'mine' && !hasEmployment"
+          title="当前账号未绑定员工"
+          description="本人加班需要员工任职绑定；台账、规则、确认与结算仍按授权范围使用。"
+        />
+        <section v-if="tab === 'mine' && hasEmployment" class="overtime-workspace__panel" data-testid="overtime-panel-mine">
           <header class="overtime-workspace__panel-header">
             <div>
               <h2>我的加班</h2>

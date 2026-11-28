@@ -1,0 +1,1 @@
+{"code":"OK","message":"OK","data":{"status":"ready","version":"1.0.0","checks":{"db":true,"cache":true,"storage":true,"migrations":true,"installation":true,"administrator":true},"time":"2026-11-28T12:33:49Z"},"request_id":"01M8H2BGFETJEG6VH1TRQ4G6TQ"}

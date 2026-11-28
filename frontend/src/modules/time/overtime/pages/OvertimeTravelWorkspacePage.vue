@@ -11,6 +11,7 @@ import OvertimeRecordTable from '../components/OvertimeRecordTable.vue'
 import TravelRequestDrawer from '../components/TravelRequestDrawer.vue'
 import TravelExpensePanel from '../components/TravelExpensePanel.vue'
 import {
+  approveOvertimeRequest,
   confirmOvertimeRequest,
   getOvertimePolicy,
   getOvertimeRecords,
@@ -113,6 +114,11 @@ const confirmingId = ref<number | null>(null)
 const confirmingMinutes = ref('')
 const confirming = ref(false)
 const confirmError = ref('')
+const approvingId = ref<number | null>(null)
+const approvingComment = ref('')
+const approveError = ref('')
+const approving = ref(false)
+let approveKey: StableSubmissionKey | null = null
 const confirmationKey = ref<StableSubmissionKey | null>(null)
 
 const currency = computed(() => {
@@ -345,6 +351,47 @@ function onSettled(): void {
   void loadOvertime()
 }
 
+function canDoOvertime(request: OvertimeRequest, action: string): boolean {
+  return request.allowedActions?.includes(action) === true
+}
+
+function startApprove(request: OvertimeRequest): void {
+  approvingId.value = request.id
+  approvingComment.value = ''
+  approveError.value = ''
+  approveKey = null
+}
+
+function cancelApprove(): void {
+  if (approving.value) return
+  approvingId.value = null
+  approvingComment.value = ''
+  approveError.value = ''
+  approveKey = null
+}
+
+async function submitApprove(request: OvertimeRequest, decision: 'APPROVE' | 'REJECT'): Promise<void> {
+  if (!canDoOvertime(request, 'overtime.request.approve')) return
+  const payload = { request_id: request.id, decision, comment: approvingComment.value.trim() }
+  approveKey = stableSubmissionKey(approveKey, 'overtime-approve', payload)
+  approving.value = true
+  approveError.value = ''
+  try {
+    const decided = await approveOvertimeRequest(request.id, decision, payload.comment, approveKey.key)
+    actionError.value = ''
+    actionMessage.value = `加班申请已${decision === 'APPROVE' ? '批准' : '拒绝'}（${overtimeStatusLabel(decided.status)}）。`
+    approvingId.value = null
+    approveKey = null
+    await loadOvertime()
+  } catch (reason) {
+    approveError.value = reason instanceof ApiError
+      ? `${reason.message || '审批未完成。'}${reason.requestId ? ` 请求编号：${reason.requestId}` : ''}`
+      : '审批未完成，请稍后重试。'
+  } finally {
+    approving.value = false
+  }
+}
+
 function startConfirm(request: OvertimeRequest): void {
   if (!canConfirmOvertime.value) return
   confirmingId.value = request.id
@@ -556,7 +603,19 @@ onMounted(() => {
                 <template #cell-status="{ row }">{{ overtimeStatusLabel(String(row.status)) }}</template>
                 <template #cell-nextStep="{ row }">{{ overtimeNextStep(String(row.status)) || '—' }}</template>
                 <template #cell-actions="{ row }">
-                  <div v-if="confirmingId === row.id" class="overtime-travel-workspace__confirm">
+                  <div v-if="approvingId === row.id" class="overtime-travel-workspace__confirm">
+                    <label>
+                      <span>审批意见</span>
+                      <el-input v-model="approvingComment" :data-testid="`overtime-approve-comment-${String(row.id)}`" maxlength="500" />
+                    </label>
+                    <p v-if="approveError" class="overtime-travel-workspace__error" role="alert">{{ approveError }}</p>
+                    <div class="overtime-travel-workspace__confirm-actions">
+                      <button type="button" class="overtime-travel-workspace__tertiary" :disabled="approving" @click="cancelApprove">取消</button>
+                      <button type="button" class="overtime-travel-workspace__tertiary" :disabled="approving" :data-testid="`overtime-reject-submit-${String(row.id)}`" @click="submitApprove(row as unknown as OvertimeRequest, 'REJECT')">拒绝</button>
+                      <button type="button" class="overtime-travel-workspace__primary" :disabled="approving" :data-testid="`overtime-approve-submit-${String(row.id)}`" @click="submitApprove(row as unknown as OvertimeRequest, 'APPROVE')">批准</button>
+                    </div>
+                  </div>
+                  <div v-else-if="confirmingId === row.id" class="overtime-travel-workspace__confirm">
                     <label>
                       <span>确认分钟</span>
                       <el-input
@@ -583,7 +642,16 @@ onMounted(() => {
                     </div>
                   </div>
                   <button
-                    v-else-if="canConfirmOvertime && row.status === 'APPROVED'"
+                    v-else-if="canDoOvertime(row as unknown as OvertimeRequest, 'overtime.request.approve')"
+                    type="button"
+                    class="overtime-travel-workspace__tertiary"
+                    :data-testid="`overtime-approve-${String(row.id)}`"
+                    @click="startApprove(row as unknown as OvertimeRequest)"
+                  >
+                    审批加班
+                  </button>
+                  <button
+                    v-else-if="canDoOvertime(row as unknown as OvertimeRequest, 'overtime.request.confirm')"
                     type="button"
                     class="overtime-travel-workspace__tertiary"
                     :data-testid="`overtime-confirm-${String(row.id)}`"

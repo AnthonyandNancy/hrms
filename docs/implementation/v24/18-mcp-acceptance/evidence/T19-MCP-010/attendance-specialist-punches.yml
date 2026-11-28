@@ -1,0 +1,92 @@
+- generic [ref=f32e3]:
+  - link "跳到主要内容" [ref=f32e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - complementary "主导航" [ref=f32e5]:
+    - generic [ref=f32e6]:
+      - generic [aria-hidden] [ref=f32e7]: 澄
+      - generic [ref=f32e8]:
+        - generic [ref=f32e9]: 澄明 HR
+        - generic [ref=f32e10]: Acme China Synthetic
+      - button "收起侧边栏" [expanded] [ref=f32e11] [cursor=pointer]
+    - navigation "V1.1 功能菜单" [ref=f32e15]:
+      - link "我的工作台" [ref=f32e17] [cursor=pointer]:
+        - /url: /workspace
+      - button "仪表盘" [ref=f32e23] [cursor=pointer]
+      - generic [ref=f32e31]:
+        - button "考勤打卡" [expanded] [ref=f32e32] [cursor=pointer]
+        - link "我的打卡" [ref=f32e43] [cursor=pointer]:
+          - /url: /attendance
+      - button "请假管理" [ref=f32e51] [cursor=pointer]
+      - button "加班管理" [ref=f32e60] [cursor=pointer]
+      - button "出差管理" [ref=f32e71] [cursor=pointer]
+      - button "系统管理" [ref=f32e80] [cursor=pointer]
+  - generic [ref=f32e89]:
+    - banner [ref=f32e90]:
+      - generic [ref=f32e91]:
+        - paragraph [ref=f32e92]: 澄明科技 · 人力资源
+        - generic [ref=f32e93]: 我的打卡
+      - link "查看未读公告" [ref=f32e94] [cursor=pointer]:
+        - /url: /notices
+      - button "打开账户菜单" [ref=f32e102] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f32e103]: T1
+        - generic [ref=f32e104]: t18.attendance
+    - main [ref=f32e109]:
+      - generic [ref=f32e110]:
+        - generic [ref=f32e111]:
+          - generic [ref=f32e112]:
+            - paragraph [ref=f32e113]: 假勤与薪酬 · 考勤打卡
+            - heading "考勤工作台" [level=1] [ref=f32e114]
+            - paragraph [ref=f32e115]: 本人打卡与管理动作收敛在同一个角色化工作区；日期、范围、关账状态和计算结果均由服务端判定。
+          - generic [ref=f32e116]:
+            - button "补卡" [ref=f32e117] [cursor=pointer]
+            - button "刷新" [ref=f32e118] [cursor=pointer]
+        - navigation "考勤工作区视图" [ref=f32e119]:
+          - button "我的打卡" [ref=f32e120] [cursor=pointer]
+          - button "明细" [ref=f32e121] [cursor=pointer]
+          - button "日历" [ref=f32e122] [cursor=pointer]
+          - button "异常" [ref=f32e123] [cursor=pointer]
+          - button "补卡" [ref=f32e124] [cursor=pointer]
+          - button "规则" [ref=f32e125] [cursor=pointer]
+          - button "班次" [ref=f32e126] [cursor=pointer]
+          - button "排班" [ref=f32e127] [cursor=pointer]
+          - button "月结" [ref=f32e128] [cursor=pointer]
+        - form "考勤筛选" [ref=f32e129]:
+          - generic [ref=f32e130]:
+            - generic [ref=f32e131]: 业务月份
+            - textbox "业务月份" [ref=f32e134]: 2026-11
+          - generic [ref=f32e135]:
+            - generic [ref=f32e136]: 员工任职 ID
+            - textbox "员工任职 ID" [ref=f32e139]:
+              - /placeholder: 管理视角按授权范围筛选
+              - text: "2"
+          - generic [ref=f32e140]:
+            - generic [ref=f32e141]: 组织单元编号
+            - textbox "组织单元编号" [ref=f32e144]:
+              - /placeholder: 按授权范围筛选
+          - button "应用筛选" [ref=f32e145] [cursor=pointer]
+        - region "考勤明细" [ref=f32e146]:
+          - generic [ref=f32e147]:
+            - generic [ref=f32e148]:
+              - heading "考勤明细" [level=2] [ref=f32e149]
+              - paragraph [ref=f32e150]: 服务端先按当前账号授权范围过滤，再分页。原始打卡只读，补卡必须经审批案例后由服务端重算。
+            - generic [ref=f32e151]: 共 0 条
+          - generic [ref=f32e153]:
+            - generic [aria-hidden] [ref=f32e154]: —
+            - generic [ref=f32e155]:
+              - heading "当前条件下没有考勤明细" [level=2] [ref=f32e156]
+              - paragraph [ref=f32e157]: 服务端没有返回考勤日记录。请调整月份、员工编号或组织单元后重试；页面不会补造打卡数据。
+          - generic [ref=f32e158]:
+            - generic [ref=f32e159]: 当前第 1 / 1 页
+            - generic [ref=f32e160]:
+              - generic [ref=f32e163] [cursor=pointer]:
+                - generic:
+                  - combobox [ref=f32e165]
+                  - generic [ref=f32e166]: 20条/页
+              - button "上一页" [disabled] [ref=f32e171]
+              - list [ref=f32e172]:
+                - listitem "第 1 页" [ref=f32e173]: "1"
+              - button "下一页" [disabled] [ref=f32e174]
+    - contentinfo [ref=f32e175]:
+      - generic [ref=f32e176]: 澄明科技 HRMS
+      - generic [ref=f32e177]: 审计与导出操作会记录操作者、目的与时间
+      - generic [ref=f32e178]: 构建 04b874e0

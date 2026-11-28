@@ -199,17 +199,17 @@ Route::middleware(['auth.session', 'csrf.header'])->group(function (): void {
 
 Route::prefix('employees')->middleware('auth.session')->group(function (): void {
     Route::post('/onboard', [EmployeeController::class, 'onboard'])
-        ->middleware(['csrf.header', 'mfa.step-up', 'capability:people.employee.manage,COMPANY'])
+        ->middleware(['csrf.header', 'mfa.step-up', 'capability:people.employee.manage,COMPANY', 'capability:lifecycle.onboarding.manage,COMPANY'])
         ->name('employees.onboard');
     Route::get('/', [EmployeeController::class, 'index'])
-        ->middleware('capability:people.employee.read,COMPANY')
+        ->middleware('capability:people.employee.read')
         ->name('employees.index');
     Route::get('/export', [EmployeeController::class, 'export'])
         ->middleware('capability:people.employee.export,COMPANY')
         ->name('employees.export');
     Route::get('/{employment_id}', [EmployeeController::class, 'show'])
         ->whereNumber('employment_id')
-        ->middleware('capability:people.employee.read,COMPANY')
+        ->middleware('capability:people.employee.read')
         ->name('employees.show');
     Route::delete('/{employment_id}', [EmployeeController::class, 'archive'])
         ->whereNumber('employment_id')
@@ -294,7 +294,16 @@ Route::prefix('employment-contracts/{id}')->middleware('auth.session')->group(fu
         ->whereNumber('id')
         ->middleware('capability:people.contract.terminate')
         ->name('employment-contracts.terminate');
+    Route::post('/activate', [ContractLifecycleController::class, 'activate'])
+        ->whereNumber('id')
+        ->middleware('capability:people.contract.manage')
+        ->name('employment-contracts.activate');
 });
+
+Route::get('/employments/{employmentId}/contract-versions', [EmploymentContractController::class, 'versions'])
+    ->whereNumber('employmentId')
+    ->middleware(['auth.session', 'capability:people.contract.read'])
+    ->name('employments.contract-versions.index');
 
 Route::prefix('contract-templates')->middleware('auth.session')->group(function (): void {
     Route::get('/', [ContractLifecycleController::class, 'templates'])
@@ -636,7 +645,7 @@ Route::prefix('time')->middleware('auth.session')->group(function (): void {
         ->middleware('capability:time.shift.schedule.read')
         ->name('time.shift-schedules.index');
     Route::post('/shift-schedules', [AttendanceOpsController::class, 'storeSchedule'])
-        ->middleware(['csrf.header', 'capability:time.shift.schedule.manage'])
+        ->middleware(['csrf.header', IdempotentCommand::class, 'capability:time.shift.schedule.manage'])
         ->name('time.shift-schedules.store');
 
     Route::get('/attendance/closings', [AttendanceOpsController::class, 'closings'])
@@ -702,6 +711,10 @@ Route::prefix('time')->middleware('auth.session')->group(function (): void {
         ->whereNumber('id')
         ->middleware('capability:time.overtime.confirm')
         ->name('time.overtime.requests.confirm');
+    Route::post('/overtime/requests/{id}/approve', [OvertimeRequestController::class, 'approve'])
+        ->whereNumber('id')
+        ->middleware('capability:time.overtime.manage')
+        ->name('time.overtime.requests.approve');
     Route::get('/overtime/timeoff-balances', [OvertimeRequestController::class, 'timeoffBalances'])
         ->middleware('capability:time.timeoff.read')
         ->name('time.overtime.timeoff-balances');
@@ -1088,6 +1101,16 @@ Route::prefix('performance')->middleware(['auth.session'])->group(function (): v
     Route::get('/cycles', [PerformanceController::class, 'cycles'])
         ->middleware('capability:performance.cycle.read')
         ->name('performance.cycles.index');
+    Route::get('/bonus-mappings', [PerformanceController::class, 'bonusMappings'])
+        ->middleware('capability:performance.report.read')
+        ->name('performance.bonus-mappings.index');
+    Route::post('/bonus-mappings', [PerformanceController::class, 'storeBonusMapping'])
+        ->middleware(['csrf.header', 'capability:performance.result.publish,COMPANY'])
+        ->name('performance.bonus-mappings.store');
+    Route::post('/bonus-mappings/{id}/approve', [PerformanceController::class, 'approveBonusMapping'])
+        ->whereNumber('id')
+        ->middleware(['csrf.header', 'capability:performance.result.publish,COMPANY'])
+        ->name('performance.bonus-mappings.approve');
     Route::post('/cycles', [PerformanceController::class, 'storeCycle'])
         ->middleware('capability:performance.cycle.manage')
         ->name('performance.cycles.store');
@@ -1215,6 +1238,10 @@ Route::prefix('training')->middleware(['auth.session', 'csrf.header'])->group(fu
         ->whereNumber('id')
         ->middleware('capability:training.exam.manage,COMPANY')
         ->name('training.exams.publish');
+    Route::post('/exams/{id}/attempts', [TrainingController::class, 'submitExamAttempt'])
+        ->whereNumber('id')
+        ->middleware('capability:training.exam.manage,COMPANY')
+        ->name('training.exams.attempts.store');
     Route::get('/feedback', [TrainingController::class, 'feedback'])
         ->middleware('capability:training.feedback.manage,COMPANY')
         ->name('training.feedback.index');
@@ -1257,6 +1284,24 @@ Route::prefix('payroll')->middleware(['auth.session', 'csrf.header'])->group(fun
     Route::get('/schemes', [PayrollCatalogController::class, 'schemes'])
         ->middleware('capability:payroll.run.read,COMPANY')
         ->name('payroll.schemes.index');
+    Route::get('/rules', [PayrollCatalogController::class, 'rules'])
+        ->middleware('capability:payroll.run.read,COMPANY')
+        ->name('payroll.rules.index');
+    Route::post('/scheme-items/{id}/rules', [PayrollCatalogController::class, 'storeRule'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware('capability:payroll.run.prepare,COMPANY')
+        ->name('payroll.rules.store');
+    Route::post('/rules/{id}/publish', [PayrollCatalogController::class, 'publishRule'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware('capability:payroll.run.prepare,COMPANY')
+        ->name('payroll.rules.publish');
+    Route::post('/rules/{id}/retire', [PayrollCatalogController::class, 'retireRule'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware('capability:payroll.run.prepare,COMPANY')
+        ->name('payroll.rules.retire');
     Route::post('/items/{id}/versions', [PayrollCatalogController::class, 'storeVersion'])
         ->whereNumber('id')
         ->middleware(IdempotentCommand::class)
@@ -1290,6 +1335,11 @@ Route::prefix('payroll')->middleware(['auth.session', 'csrf.header'])->group(fun
         ->whereNumber('id')
         ->middleware('capability:payroll.run.read,PAYROLL_RUN')
         ->name('payroll.runs.show');
+
+    Route::post('/runs/{id}/members', [PayrollRunController::class, 'assignMember'])
+        ->whereNumber('id')
+        ->middleware('capability:payroll.run.prepare,PAYROLL_RUN')
+        ->name('payroll.runs.members.store');
     Route::get('/runs/{id}/employees', [PayrollRunController::class, 'employees'])
         ->whereNumber('id')
         ->middleware('capability:payroll.run.read,PAYROLL_RUN')
@@ -1353,6 +1403,11 @@ Route::prefix('payroll')->middleware(['auth.session', 'csrf.header'])->group(fun
         ->middleware(IdempotentCommand::class)
         ->middleware(['mfa.step-up', 'capability:payroll.run.correct,PAYROLL_RUN'])
         ->name('payroll.runs.corrections.store');
+    Route::post('/runs/{id}/corrections/void', [PayrollRunController::class, 'voidCorrection'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware(['mfa.step-up', 'capability:payroll.run.correct,PAYROLL_RUN'])
+        ->name('payroll.runs.corrections.void');
 
     Route::get('/runs/{id}/exports/bank', [PayrollRunController::class, 'exportBank'])
         ->whereNumber('id')
@@ -1426,6 +1481,11 @@ Route::prefix('benefits')->middleware(['auth.session', 'csrf.header'])->group(fu
     Route::post('/transactions', [BenefitController::class, 'storeTransaction'])
         ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:benefit.manage,COMPANY'])
         ->name('benefits.transactions.store');
+
+    Route::post('/transactions/{id}/reverse', [BenefitController::class, 'reverseTransaction'])
+        ->whereNumber('id')
+        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:benefit.manage,COMPANY'])
+        ->name('benefits.transactions.reverse');
 });
 
 /*

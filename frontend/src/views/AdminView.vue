@@ -12,6 +12,10 @@ import LoadingState from '@/components/LoadingState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 
+function adminStatusLabel(status: string): string {
+  return ({ ACTIVE: '生效', ENABLED: '启用', DISABLED: '停用', REVOKED: '已撤销', EXPIRED: '已过期', PENDING: '待处理', SUSPENDED: '已暂停' } as Record<string, string>)[status] ?? '未知状态'
+}
+
 const session = useSessionStore()
 const tab = ref('users')
 const loading = ref(true)
@@ -345,7 +349,7 @@ onMounted(load)
                   {{ binding.validFrom }}<br />
                   <span class="muted">至 {{ binding.expiresOn ?? '长期' }}</span>
                 </td>
-                <td><span class="plain-chip">{{ binding.status }}</span></td>
+                <td><span class="plain-chip">{{ adminStatusLabel(binding.status) }}</span></td>
               </tr>
             </tbody>
           </table>
@@ -376,7 +380,7 @@ onMounted(load)
               <span class="plain-chip">截止 {{ formatBusinessDate(item.dueOn) }}</span>
               <span class="plain-chip">{{ item.riskLevel }}</span>
             </div>
-            <span class="plain-chip">{{ item.status }}</span>
+            <span class="plain-chip">{{ adminStatusLabel(item.status) }}</span>
           </li>
         </ul>
       </section>

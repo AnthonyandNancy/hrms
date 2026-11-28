@@ -42,6 +42,12 @@ final class InstallCommandTest extends TestCase
 
         $this->assertSame(1, User::query()->count(), 'The installer must create exactly one account.');
         $this->assertDatabaseHas('users', ['username' => 'installer', 'is_privileged' => true]);
+        $this->assertDatabaseHas('platform_installation_states', [
+            'instance_key' => 'primary',
+            'status' => 'COMPLETED',
+            'admin_username' => 'installer',
+        ]);
+        $this->assertSame(1, \App\Modules\Platform\Models\PlatformInstallationState::query()->count());
         // MFA is disabled by default (owner decision, ADR-0018): the
         // installer must not fabricate an enrolled timestamp.
         $this->assertSame(0, MfaFactor::query()->whereNotNull('confirmed_at')->count());
@@ -82,7 +88,9 @@ final class InstallCommandTest extends TestCase
             'mfa' => MfaFactor::query()->count(),
         ];
 
-        $this->artisan('hrms:install', $options)->assertExitCode(0);
+        $secondExit = \Illuminate\Support\Facades\Artisan::call('hrms:install', $options);
+        $secondOutput = \Illuminate\Support\Facades\Artisan::output();
+        $this->assertSame(0, $secondExit, $secondOutput);
 
         $this->assertSame($before['users'], User::query()->count());
         $this->assertSame($before['roles'], Role::query()->count());
@@ -118,13 +126,51 @@ final class InstallCommandTest extends TestCase
         ];
     }
 
-    public function test_it_requires_annual_days_and_legal_basis(): void
+    public function test_it_installs_without_nonessential_leave_parameters_and_leaves_annual_policy_unresolved(): void
     {
         $options = $this->installOptions();
         unset($options['--annual-days'], $options['--legal-basis']);
 
-        $this->artisan('hrms:install', $options)->assertExitCode(1);
-        $this->assertSame(0, User::query()->count());
+        $this->artisan('hrms:install', $options)->assertExitCode(0);
+
+        $this->assertSame(1, User::query()->count());
+        $this->assertDatabaseHas('leave_types', [
+            'code' => 'ANNUAL',
+            'annual_entitlement_days' => null,
+        ]);
+        $this->assertDatabaseHas('platform_installation_states', ['instance_key' => 'primary', 'status' => 'COMPLETED']);
+    }
+
+    public function test_it_refuses_a_second_administrator_after_installation_completed(): void
+    {
+        $first = $this->installOptions();
+        $this->artisan('hrms:install', $first)->assertExitCode(0);
+
+        $second = [
+            ...$first,
+            '--admin-username' => 'second-installer',
+            '--admin-email' => 'second-installer@example.test',
+            '--admin-password' => 'Install!2026Synthetic2',
+        ];
+        $this->artisan('hrms:install', $second)->assertExitCode(1);
+
+        $this->assertSame(1, User::query()->count());
+        $this->assertDatabaseMissing('users', ['username' => 'second-installer']);
+        $this->assertDatabaseHas('platform_installation_states', [
+            'instance_key' => 'primary',
+            'admin_username' => 'installer',
+        ]);
+    }
+
+    public function test_readiness_reports_schema_installation_and_administrator_checks(): void
+    {
+        $this->artisan('hrms:install', $this->installOptions())->assertExitCode(0);
+
+        $response = $this->getJson('/v1/health/ready');
+        $response->assertOk()
+            ->assertJsonPath('data.checks.migrations', true)
+            ->assertJsonPath('data.checks.installation', true)
+            ->assertJsonPath('data.checks.administrator', true);
     }
 
     public function test_a_failed_step_prints_the_partial_report(): void

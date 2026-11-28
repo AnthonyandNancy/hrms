@@ -10,8 +10,10 @@ use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\User;
 use App\Modules\Payroll\Authorization\EloquentPayrollRunMembershipDirectory;
 use App\Modules\Payroll\Models\PayrollRun;
+use App\Modules\Payroll\Models\PayrollSchemeItem;
 use App\Modules\Payroll\Services\ApprovalService;
 use App\Modules\Payroll\Services\CalculationService;
+use App\Modules\Payroll\Services\CorrectionService;
 use App\Modules\Payroll\Services\PayrollRunService;
 use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\Authorizer;
@@ -34,6 +36,78 @@ use Tests\Support\PayrollTestCase;
  */
 final class PayrollWorkspaceTest extends PayrollTestCase
 {
+    public function test_rule_version_draft_publish_and_retire_are_real_http_commands(): void
+    {
+        $base = $this->seedPayrollBase();
+        $item = PayrollSchemeItem::query()->create([
+            'scheme_id' => (int) $base['scheme']->id,
+            'payroll_item_id' => null,
+            'item_code' => 'RULE_HTTP',
+            'label' => 'Rule HTTP',
+            'category' => 'EARNING',
+            'calculation' => 'FORMULA_LIMITED',
+            'amount_cents' => 0,
+            'rate_scaled' => null,
+            'basis' => 'BASE_SALARY',
+            'formula_json' => null,
+            'sort_order' => 10,
+            'taxable' => true,
+        ]);
+        $this->actAs(10);
+
+        $created = $this->postJson('/v1/payroll/scheme-items/'.(int) $item->id.'/rules', [
+            'ast' => ['type' => 'const', 'value' => '50000'],
+            'stage' => 'EARNING',
+            'dependencies' => [],
+            'rounding_mode' => 'HALF_UP',
+        ], ['Idempotency-Key' => 'rule-http-create'])
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'DRAFT')
+            ->assertJsonPath('data.scheme_item_id', (int) $item->id);
+        $ruleId = (int) $created->json('data.id');
+        $this->assertSame(64, strlen((string) $created->json('data.hash')));
+
+        $this->getJson('/v1/payroll/rules?scheme_item_id='.(int) $item->id)
+            ->assertOk()
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.items.0.status', 'DRAFT');
+
+        $this->postJson('/v1/payroll/rules/'.$ruleId.'/publish', [], ['Idempotency-Key' => 'rule-http-publish'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'PUBLISHED');
+
+        $this->postJson('/v1/payroll/rules/'.$ruleId.'/retire', ['reason' => 'Synthetic retirement reason.'], ['Idempotency-Key' => 'rule-http-retire'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'RETIRED')
+            ->assertJsonPath('data.retire_reason', 'Synthetic retirement reason.');
+    }
+
+    public function test_unpaid_correction_void_is_a_real_http_command(): void
+    {
+        $base = $this->seedPayrollBase();
+        $runs = app(PayrollRunService::class);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-01']);
+        $run = $runs->lockInputs((int) $run->id, 10);
+        app(CalculationService::class)->calculate($run, 10);
+        app(ApprovalService::class)->review((int) $run->id, 11);
+        app(ApprovalService::class)->approve((int) $run->id, 12);
+        app(ApprovalService::class)->publish((int) $run->id, 13);
+
+        $correction = app(CorrectionService::class)->create(
+            (int) $run->id,
+            11,
+            '2026-02',
+            'Synthetic HTTP correction void fixture.',
+        );
+        $this->actAs(11);
+        $this->postJson('/v1/payroll/runs/'.(int) $correction->id.'/corrections/void', [
+            'reason' => 'Synthetic HTTP correction void reason.',
+        ], ['Idempotency-Key' => 'payroll-correction-void-http'])
+            ->assertOk()
+            ->assertJsonPath('data.correction_status', 'VOID')
+            ->assertJsonPath('data.correction_void_reason', 'Synthetic HTTP correction void reason.');
+    }
+
     public function test_real_lifecycle_actions_advance_a_draft_run_to_published(): void
     {
         $base = $this->seedPayrollBase();
@@ -117,7 +191,7 @@ final class PayrollWorkspaceTest extends PayrollTestCase
         $this->actAs(13);
         $this->postJson('/v1/payroll/runs/'.(int) $run->id.'/publish')
             ->assertStatus(409)
-            ->assertJsonPath('data.reason', 'INVALID_RUN_TRANSITION');
+            ->assertJsonPath('data.reason', 'RUN_NOT_PUBLISHABLE');
     }
 
     public function test_published_run_is_read_only_and_exports_remain_available(): void

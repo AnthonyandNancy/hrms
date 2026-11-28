@@ -22,6 +22,14 @@ return [
     'endpoints' => [
         [
             'method' => 'GET',
+            'path' => '/v1/auth/csrf',
+            'capability' => 'iam.session.manage',
+            'anchor' => 'SELF',
+            'risk' => 'low',
+            'denials' => ['unauthenticated', 'stale_auth_version', 'session_revoked'],
+        ],
+        [
+            'method' => 'GET',
             'path' => '/v1/auth/sessions',
             'capability' => 'iam.session.manage',
             'anchor' => 'SELF',

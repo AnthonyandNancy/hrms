@@ -5,10 +5,15 @@ declare(strict_types=1);
 namespace Tests\Feature\Payroll;
 
 use App\Modules\IAM\Auth\CapabilityAuthorizer;
+use App\Modules\IAM\Contracts\AllowedActionResolver;
 use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\User;
+use App\Modules\Payroll\Authorization\EloquentPayrollRunMembershipDirectory;
 use App\Modules\Payroll\Enums\PayrollRunStatus;
+use App\Modules\Payroll\Models\PayrollInputSnapshot;
 use App\Modules\Payroll\Models\PayrollRun;
+use App\Modules\Payroll\Models\PayrollRunMember;
+use App\Modules\Payroll\Models\PayrollYtd;
 use App\Modules\Payroll\Models\Payslip;
 use App\Modules\Payroll\Models\PayslipLine;
 use App\Modules\Payroll\Services\ApprovalService;
@@ -18,10 +23,131 @@ use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Exceptions\ConflictException;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\PayrollTestCase;
 
 final class PayrollRunLifecycleTest extends PayrollTestCase
 {
+    public function test_blocked_and_orthogonal_states_project_only_permitted_actions(): void
+    {
+        $base = $this->seedPayrollBase();
+        $runs = app(PayrollRunService::class);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-10']);
+        $this->registerRunMembership($run, 10);
+        $principal = $this->actAs(10);
+        $resolver = app(AllowedActionResolver::class);
+
+        $blocked = $resolver->for($principal, 'payroll_run', (int) $run->id, [
+            'status' => 'CALCULATED_WITH_BLOCKERS',
+            'payslip_status' => 'UNPUBLISHED',
+            'disbursement_status' => 'NOT_REGISTERED',
+        ], '2026-11-23');
+        $this->assertNotContains('payroll.run.detail.review', $blocked);
+        $this->assertNotContains('payroll.run.detail.approve', $blocked);
+        $this->assertNotContains('payroll.run.detail.publish', $blocked);
+        $this->assertNotContains('payroll.run.detail.close', $blocked);
+
+        $approved = $resolver->for($principal, 'payroll_run', (int) $run->id, [
+            'status' => 'APPROVED',
+            'payslip_status' => 'UNPUBLISHED',
+            'disbursement_status' => 'NOT_REGISTERED',
+        ], '2026-11-23');
+        $this->assertContains('payroll.run.detail.publish', $approved);
+        $this->assertContains('payroll.run.detail.mark-paid', $approved);
+        $this->assertNotContains('payroll.run.detail.close', $approved);
+
+        $paid = $resolver->for($principal, 'payroll_run', (int) $run->id, [
+            'status' => 'PAID',
+            'payslip_status' => 'PUBLISHED',
+            'disbursement_status' => 'REGISTERED',
+        ], '2026-11-23');
+        $this->assertNotContains('payroll.run.detail.publish', $paid);
+        $this->assertNotContains('payroll.run.detail.mark-paid', $paid);
+        $this->assertContains('payroll.run.detail.close', $paid);
+    }
+
+    public function test_publish_and_disbursement_are_independent_and_close_requires_both(): void
+    {
+        $base = $this->seedPayrollBase();
+        $runs = app(PayrollRunService::class);
+        $approval = app(ApprovalService::class);
+
+        $first = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-07']);
+        $first = $runs->lockInputs((int) $first->id, 10);
+        app(CalculationService::class)->calculate($first, 10);
+        $approval->review((int) $first->id, 11);
+        $approval->approve((int) $first->id, 12);
+        $first = $approval->publish((int) $first->id, 13);
+        $this->assertSame(PayrollRunStatus::PUBLISHED, $first->status);
+        $this->assertSame('PUBLISHED', (string) $first->payslip_status);
+        $this->assertSame('NOT_REGISTERED', (string) $first->disbursement_status);
+
+        try {
+            $approval->close((int) $first->id, 12);
+            $this->fail('Close must require disbursement registration.');
+        } catch (ConflictException $exception) {
+            $this->assertSame('RUN_CLOSE_PREREQUISITES_MISSING', $exception->details()['reason'] ?? null);
+        }
+
+        $first = $approval->markPaid((int) $first->id, 13, 'BANK-REF-1');
+        $this->assertSame('REGISTERED', (string) $first->disbursement_status);
+        $first = $approval->close((int) $first->id, 12);
+        $this->assertSame(PayrollRunStatus::CLOSED, $first->status);
+
+        $second = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-08']);
+        $second = $runs->lockInputs((int) $second->id, 10);
+        app(CalculationService::class)->calculate($second, 10);
+        $approval->review((int) $second->id, 11);
+        $approval->approve((int) $second->id, 12);
+        $second = $approval->markPaid((int) $second->id, 13, 'BANK-REF-2');
+        $this->assertSame(PayrollRunStatus::PAID, $second->status);
+        $this->assertSame('UNPUBLISHED', (string) $second->payslip_status);
+        $second = $approval->publish((int) $second->id, 13);
+        $this->assertSame(PayrollRunStatus::PAID, $second->status);
+        $this->assertSame('PUBLISHED', (string) $second->payslip_status);
+        $second = $approval->close((int) $second->id, 12);
+        $this->assertSame(PayrollRunStatus::CLOSED, $second->status);
+    }
+
+    public function test_run_members_are_persisted_and_preassigned_reviewer_can_discover_the_run(): void
+    {
+        $base = $this->seedPayrollBase();
+        $runs = app(PayrollRunService::class);
+        $run = $runs->createRun(10, [
+            'scheme_id' => (int) $base['scheme']->id,
+            'period' => '2026-06',
+        ]);
+
+        $this->assertDatabaseHas('payroll_run_members', [
+            'run_id' => $run->id,
+            'user_id' => 10,
+            'member_role' => PayrollRunMember::ROLE_PREPARER,
+        ]);
+
+        $member = $runs->assignMember(
+            runId: (int) $run->id,
+            actorUserId: 10,
+            targetUserId: 11,
+            memberRole: PayrollRunMember::ROLE_REVIEWER,
+            reason: 'Pre-assigned four-eyes reviewer.',
+        );
+        $this->assertSame(PayrollRunMember::ROLE_REVIEWER, $member['member_role']);
+
+        $directory = new EloquentPayrollRunMembershipDirectory;
+        $this->assertTrue($directory->isMember(11, (int) $run->id, 'payroll.run.read'));
+        $this->assertContains((int) $run->id, $directory->runIdsForUser(11, '2026-11-23'));
+        $this->assertContains((int) $run->id, $directory->runIdsForUser(10, '2026-11-23'));
+
+        $detail = $runs->runDetail($run->refresh());
+        $this->assertSame(2, count($detail['members']));
+        $this->assertSame(1, PayrollRunMember::query()
+            ->where('run_id', $run->id)
+            ->where('user_id', 11)
+            ->where('member_role', PayrollRunMember::ROLE_REVIEWER)
+            ->count());
+    }
+
     public function test_full_lifecycle_is_legal_and_seals_the_run(): void
     {
         $base = $this->seedPayrollBase();
@@ -62,7 +188,7 @@ final class PayrollRunLifecycleTest extends PayrollTestCase
         $this->assertSame(PayrollRunStatus::CLOSED, $run->status);
 
         $this->assertDatabaseCount('payroll_ytd', 1);
-        $ytd = \App\Modules\Payroll\Models\PayrollYtd::query()->firstOrFail();
+        $ytd = PayrollYtd::query()->firstOrFail();
         $this->assertSame($run->gross_cents, $ytd->gross_cents);
     }
 
@@ -96,11 +222,11 @@ final class PayrollRunLifecycleTest extends PayrollTestCase
         $run = $this->publishedRun('2026-04');
 
         try {
-            \Illuminate\Support\Facades\DB::table('payroll_runs')
+            DB::table('payroll_runs')
                 ->where('id', $run->id)
                 ->update(['net_cents' => (int) $run->net_cents + 1]);
             $this->fail('Sealed payroll run was mutated.');
-        } catch (\Illuminate\Database\QueryException $exception) {
+        } catch (QueryException $exception) {
             $this->assertStringContainsString('immutable', $exception->getMessage());
         }
 
@@ -115,18 +241,18 @@ final class PayrollRunLifecycleTest extends PayrollTestCase
             'period' => '2026-05',
         ]);
         $run = app(PayrollRunService::class)->lockInputs((int) $run->id, 10);
-        $snapshot = \App\Modules\Payroll\Models\PayrollInputSnapshot::query()->where('run_id', $run->id)->firstOrFail();
+        $snapshot = PayrollInputSnapshot::query()->where('run_id', $run->id)->firstOrFail();
 
         try {
-            \Illuminate\Support\Facades\DB::table('payroll_input_snapshots')
+            DB::table('payroll_input_snapshots')
                 ->where('id', $snapshot->id)
                 ->update(['source_hash' => str_repeat('b', 64)]);
             $this->fail('Snapshot update was not blocked.');
-        } catch (\Illuminate\Database\QueryException $exception) {
+        } catch (QueryException $exception) {
             $this->assertStringContainsString('append-only', $exception->getMessage());
         }
 
-        $this->assertSame($snapshot->source_hash, \App\Modules\Payroll\Models\PayrollInputSnapshot::query()->whereKey($snapshot->id)->firstOrFail()->source_hash);
+        $this->assertSame($snapshot->source_hash, PayrollInputSnapshot::query()->whereKey($snapshot->id)->firstOrFail()->source_hash);
     }
 
     public function test_preparer_cannot_approve_own_run(): void

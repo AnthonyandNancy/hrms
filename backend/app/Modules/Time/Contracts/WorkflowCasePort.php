@@ -30,5 +30,24 @@ interface WorkflowCasePort
 
     public function case(int $caseId): ?WorkflowCaseSnapshot;
 
-    public function requestCancel(int $caseId, int $actorUserId, string $reason): void;
+    public function requestCancel(
+        int $caseId,
+        int $actorUserId,
+        string $reason,
+        ?string $authorizingCapability = null,
+    ): void;
+
+    /**
+     * Execute the declared reversal for an already applied case effect.
+     * Workflow remains the owner of the effect row and status. The caller must
+     * only commit its own projection when the returned reversal succeeded.
+     *
+     * @return array{case_id: int, effect_status: string, reversed: int}
+     */
+    public function reverseEffect(
+        int $caseId,
+        string $reason,
+        string $effectiveOn,
+        ?string $authorizingCapability = null,
+    ): array;
 }

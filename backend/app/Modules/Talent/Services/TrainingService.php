@@ -6,6 +6,8 @@ namespace App\Modules\Talent\Services;
 
 use App\Modules\Talent\Models\TrainingCourse;
 use App\Modules\Talent\Models\TrainingEnrollment;
+use App\Modules\Talent\Models\TrainingExam;
+use App\Modules\Talent\Models\TrainingExamAttempt;
 use App\Modules\Talent\Models\TrainingPlan;
 use App\Modules\Talent\Models\TrainingProgram;
 use App\Modules\Talent\Models\TrainingSession;
@@ -596,17 +598,50 @@ final class TrainingService
                 ]);
             }
 
+            $session = TrainingSession::query()->whereKey((int) $enrollment->session_id)->first();
+            $publishedExam = $session === null
+                ? null
+                : TrainingExam::query()
+                    ->where('status', 'PUBLISHED')
+                    ->where(function ($query) use ($session): void {
+                        $query->where('session_id', (int) $session->id);
+                        if ($session->course_id !== null) {
+                            $query->orWhere(function ($inner) use ($session): void {
+                                $inner->whereNull('session_id')->where('course_id', (int) $session->course_id);
+                            });
+                        }
+                    })
+                    ->orderByDesc('version')
+                    ->first();
+            $latestAttempt = TrainingExamAttempt::query()
+                ->where('enrollment_id', (int) $enrollment->id)
+                ->orderByDesc('attempt_no')
+                ->first();
+
+            if ($publishedExam !== null && $latestAttempt === null) {
+                throw new ConflictException('An exam attempt is required before completing this training.', [
+                    'reason' => 'TRAINING_EXAM_ATTEMPT_REQUIRED',
+                    'enrollment_id' => $enrollmentId,
+                    'exam_id' => (int) $publishedExam->id,
+                ]);
+            }
+
+            $completionResult = $latestAttempt !== null
+                ? ((bool) $latestAttempt->passed ? 'PASS' : 'FAIL')
+                : (string) $input['completion_result'];
+            $score = $latestAttempt !== null ? (int) $latestAttempt->score : (isset($input['score']) ? (int) $input['score'] : null);
+
             // A supplied completion date is a business DATE with no time
             // component; anchor it at UTC midnight so it never shifts day.
             $completedOn = isset($input['completed_on']) && is_string($input['completed_on'])
                 ? BusinessDate::parse($input['completed_on'])
-                : $this->clock->now();
+                : ($latestAttempt !== null ? $latestAttempt->submitted_at : $this->clock->now());
 
             $enrollment->forceFill([
                 'status' => 'COMPLETED',
                 'attended' => (bool) ($input['attended'] ?? true),
-                'completion_result' => (string) $input['completion_result'],
-                'score' => isset($input['score']) ? (int) $input['score'] : null,
+                'completion_result' => $completionResult,
+                'score' => $score,
                 'completed_at' => $completedOn,
             ])->save();
 
@@ -815,6 +850,11 @@ final class TrainingService
      */
     private function enrollmentData(TrainingEnrollment $enrollment): array
     {
+        $attempt = TrainingExamAttempt::query()
+            ->where('enrollment_id', (int) $enrollment->id)
+            ->orderByDesc('attempt_no')
+            ->first();
+
         return [
             'enrollment_id' => (int) $enrollment->id,
             'session_id' => (int) $enrollment->session_id,
@@ -824,6 +864,8 @@ final class TrainingService
             'completion_result' => $enrollment->completion_result,
             'score' => $enrollment->score,
             'completed_at' => $enrollment->completed_at !== null ? CarbonImmutable::parse((string) $enrollment->completed_at)->toIso8601ZuluString() : null,
+            'latest_exam_attempt_id' => $attempt?->id,
+            'latest_exam_attempt_score' => $attempt?->score,
         ];
     }
 

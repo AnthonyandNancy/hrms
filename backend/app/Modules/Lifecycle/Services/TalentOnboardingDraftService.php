@@ -42,6 +42,13 @@ final class TalentOnboardingDraftService implements TalentOnboardingDraftPort
                     'terms' => [
                         'work_location' => 'Unspecified',
                         'work_schedule' => 'STANDARD',
+                        'base_salary_minor' => $this->nullableInt($input['terms']['base_salary_minor'] ?? null),
+                        'salary_currency' => is_string($input['terms']['salary_currency'] ?? null)
+                            ? strtoupper((string) $input['terms']['salary_currency'])
+                            : null,
+                        'salary_scheme_code' => is_string($input['terms']['salary_scheme_code'] ?? null)
+                            ? (string) $input['terms']['salary_scheme_code']
+                            : null,
                     ],
                 ],
                 businessDate: (string) $input['business_date'],
@@ -50,5 +57,12 @@ final class TalentOnboardingDraftService implements TalentOnboardingDraftPort
 
             return ['case_id' => $created['case']->id, 'replayed' => false];
         });
+    }
+
+    private function nullableInt(mixed $value): ?int
+    {
+        return is_int($value) || (is_string($value) && preg_match('/^\d+$/D', $value) === 1)
+            ? (int) $value
+            : null;
     }
 }

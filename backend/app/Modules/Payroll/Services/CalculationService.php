@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Payroll\Services;
 
 use App\Modules\Organization\Contracts\CompanyProfileReader;
+use App\Modules\Payroll\Domain\AttendanceSummary;
 use App\Modules\Payroll\Domain\DeductionLine;
 use App\Modules\Payroll\Domain\EarningLine;
+use App\Modules\Payroll\Domain\EmployerCostLine;
 use App\Modules\Payroll\Domain\HousingFundRule;
 use App\Modules\Payroll\Domain\ManualAdjustment;
 use App\Modules\Payroll\Domain\PayrollCalculationInput;
@@ -16,6 +18,8 @@ use App\Modules\Payroll\Domain\PayrollContext;
 use App\Modules\Payroll\Domain\PayrollCorrectionDelta;
 use App\Modules\Payroll\Domain\PayrollLineSource;
 use App\Modules\Payroll\Domain\PayrollPeriod;
+use App\Modules\Payroll\Domain\PayrollRuleCompiler;
+use App\Modules\Payroll\Domain\PayrollRuleEngine;
 use App\Modules\Payroll\Domain\ProrationDivisor;
 use App\Modules\Payroll\Domain\RoundingConfig;
 use App\Modules\Payroll\Domain\SocialInsuranceRule;
@@ -30,6 +34,7 @@ use App\Modules\Payroll\Models\PayrollScheme;
 use App\Modules\Payroll\Models\Payslip;
 use App\Modules\Payroll\Models\PayslipLine;
 use App\Shared\Exceptions\ConflictException;
+use App\Shared\Money\Decimal;
 use App\Shared\Money\Money;
 use App\Shared\Money\RoundingMode;
 use App\Shared\Observability\AuditRecorder;
@@ -53,10 +58,12 @@ final class CalculationService
         private readonly PayrollStateMachine $stateMachine,
         private readonly Clock $clock,
         private readonly AuditRecorder $audit,
+        private readonly PayrollRuleCompiler $ruleCompiler,
+        private readonly PayrollRuleEngine $ruleEngine,
     ) {}
 
     /**
-     * @return array{calculated: int, failed: int, gross_cents: int, deductions_cents: int, net_cents: int, employer_cost_cents: int}
+     * @return array{calculated: int, failed: int, blocked: int, gross_cents: int, deductions_cents: int, net_cents: int, employer_cost_cents: int}
      */
     public function calculate(PayrollRun $run, int $actorUserId): array
     {
@@ -105,10 +112,21 @@ final class CalculationService
             ];
             $calculated = 0;
             $failed = 0;
+            $blocked = 0;
+            $correctionTargetNet = 0;
+            $correctionBaselineNet = 0;
             $isCorrection = ($locked->run_type instanceof PayrollRunType ? $locked->run_type : PayrollRunType::from((string) $locked->run_type)) === PayrollRunType::CORRECTION;
 
             foreach ($snapshots as $snapshot) {
                 $payload = (array) $snapshot->payload_json;
+                $blockers = (array) ($payload['blockers'] ?? []);
+
+                if ($blockers !== []) {
+                    $this->storeBlocked($locked, $snapshot, $blockers);
+                    $blocked++;
+
+                    continue;
+                }
 
                 try {
                     $result = $this->calculateOne($locked, $scheme, $company->timezone, (string) $company->currencyCode, $payload);
@@ -117,6 +135,8 @@ final class CalculationService
                         $stored = $this->storeCorrection($locked, $snapshot, $payload, $result);
                         $lines = $stored['lines'];
                         $amounts = $stored['amounts'];
+                        $correctionTargetNet = $this->checkedAdd($correctionTargetNet, (int) $stored['target_net_cents']);
+                        $correctionBaselineNet = $this->checkedAdd($correctionBaselineNet, (int) $stored['baseline_net_cents']);
                     } else {
                         $stored = $this->storeRegular($locked, $snapshot, $payload, $result);
                         $lines = $stored['lines'];
@@ -135,24 +155,35 @@ final class CalculationService
                 }
             }
 
-            if ($calculated === 0) {
+            if ($calculated === 0 && $blocked === 0 && $failed === 0) {
                 throw new ConflictException('No employee could be calculated; see run employee failure reasons.', [
                     'reason' => 'PAYROLL_CALCULATION_FAILED',
                     'failed' => $failed,
                 ]);
             }
 
-            $locked = $this->stateMachine->transition(
-                $locked,
-                PayrollRunStatus::CALCULATED,
-                [
-                    'gross_cents' => $totals['gross_cents'],
-                    'deductions_cents' => $totals['deductions_cents'],
-                    'net_cents' => $totals['net_cents'],
-                    'employer_cost_cents' => $totals['employer_cost_cents'],
-                    'calculated_at' => $this->clock->now(),
-                ],
-            );
+            $targetStatus = $blocked > 0 || $failed > 0
+                ? PayrollRunStatus::CALCULATED_WITH_BLOCKERS
+                : PayrollRunStatus::CALCULATED;
+
+            $transitionColumns = [
+                'gross_cents' => $totals['gross_cents'],
+                'deductions_cents' => $totals['deductions_cents'],
+                'net_cents' => $totals['net_cents'],
+                'employer_cost_cents' => $totals['employer_cost_cents'],
+                'calculated_at' => $this->clock->now(),
+            ];
+
+            if ($isCorrection) {
+                $transitionColumns += [
+                    'correction_target_net_cents' => $correctionTargetNet,
+                    'correction_baseline_net_cents' => $correctionBaselineNet,
+                    'correction_delta_net_cents' => $totals['net_cents'],
+                    'correction_cumulative_net_cents' => $correctionTargetNet,
+                ];
+            }
+
+            $locked = $this->stateMachine->transition($locked, $targetStatus, $transitionColumns);
 
             $this->audit->record(
                 actorUserId: $actorUserId,
@@ -161,18 +192,19 @@ final class CalculationService
                 aggregateId: (int) $locked->id,
                 before: ['status' => PayrollRunStatus::INPUT_LOCKED->value],
                 after: [
-                    'status' => PayrollRunStatus::CALCULATED->value,
+                    'status' => $targetStatus->value,
                     'input_hash' => (string) $locked->input_hash,
                     'gross_cents' => $totals['gross_cents'],
                     'deductions_cents' => $totals['deductions_cents'],
                     'net_cents' => $totals['net_cents'],
                     'employer_cost_cents' => $totals['employer_cost_cents'],
                     'failed' => $failed,
+                    'blocked' => $blocked,
                     'run_type' => $isCorrection ? 'CORRECTION' : 'REGULAR',
                 ],
             );
 
-            return ['calculated' => $calculated, 'failed' => $failed, ...$totals];
+            return ['calculated' => $calculated, 'failed' => $failed, 'blocked' => $blocked, ...$totals];
         });
     }
 
@@ -182,8 +214,19 @@ final class CalculationService
     public function calculateOne(PayrollRun $run, PayrollScheme $scheme, string $timezone, string $currency, array $payload): PayrollCalculationResult
     {
         $terms = (array) ($payload['terms'] ?? []);
+        $compensation = (array) ($payload['compensation'] ?? []);
+        $compensationSalary = isset($compensation['base_salary_cents']) ? (int) $compensation['base_salary_cents'] : null;
         $termSalary = isset($terms['base_salary_cents']) ? (int) $terms['base_salary_cents'] : null;
-        $baseSalary = $termSalary ?? (int) ($payload['scheme']['base_salary_cents'] ?? $scheme->base_salary_cents);
+        $schemeData = (array) ($payload['scheme'] ?? []);
+        $baseSalary = $compensationSalary ?? $termSalary ?? (int) ($schemeData['base_salary_cents'] ?? $scheme->base_salary_cents);
+        $segments = array_values(array_filter((array) ($payload['compensation_segments'] ?? []), 'is_array'));
+        $weightedSegmentSalary = $segments === []
+            ? null
+            : $this->weightedSegmentSalary($segments, (string) ($payload['earning_period_start'] ?? ''), (string) ($payload['earning_period_end'] ?? ''));
+
+        if ($weightedSegmentSalary !== null) {
+            $baseSalary = $weightedSegmentSalary;
+        }
 
         if ($baseSalary < 0) {
             throw new \InvalidArgumentException('Salary cannot be negative.');
@@ -195,14 +238,14 @@ final class CalculationService
         $payDate = new DateTimeImmutable(substr((string) $run->pay_date, 0, 10).' 00:00:00', new DateTimeZone('UTC'));
         $cutoffValue = $run->cutoff_at instanceof \DateTimeInterface ? $run->cutoff_at->format('Y-m-d H:i:s') : substr((string) $run->cutoff_at, 0, 19);
         $cutoff = new DateTimeImmutable($cutoffValue, new DateTimeZone('UTC'));
-        $roundingMode = RoundingMode::from((string) $scheme->rounding_mode);
+        $roundingMode = RoundingMode::from((string) ($schemeData['rounding_mode'] ?? $scheme->rounding_mode));
 
         $context = new PayrollContext(
             currency: $currency,
             timezone: $timezone,
             rounding: new RoundingConfig($roundingMode),
-            prorationDivisor: ProrationDivisor::from((string) $scheme->proration_divisor),
-            allowNegativeNet: (bool) $scheme->allow_negative_net,
+            prorationDivisor: ProrationDivisor::from((string) ($schemeData['proration_divisor'] ?? $scheme->proration_divisor)),
+            allowNegativeNet: (bool) ($schemeData['allow_negative_net'] ?? $scheme->allow_negative_net),
         );
 
         $ytd = (array) ($payload['ytd_opening'] ?? []);
@@ -220,10 +263,12 @@ final class CalculationService
         }
 
         $allowances = [];
+        $oneTimeBonuses = [];
         $otherDeductions = [];
+        $otherEmployerCosts = [];
         foreach ((array) ($payload['scheme']['items'] ?? []) as $item) {
             $item = (array) $item;
-            $amount = Money::fromMinor((int) ($item['amount_cents'] ?? 0), $currency);
+            $amount = Money::fromMinor($this->schemeItemAmount($item, $baseSalary, $attendance), $currency);
             $source = new PayrollLineSource('payroll_scheme_item', (string) ($run->scheme_id).':'.(string) ($item['item_code'] ?? ''));
 
             if ($amount->isZero()) {
@@ -248,7 +293,77 @@ final class CalculationService
                     sortOrder: (int) ($item['sort_order'] ?? 0),
                     taxable: false,
                 );
+            } elseif (($item['category'] ?? '') === 'EMPLOYER_COST') {
+                $otherEmployerCosts[] = new EmployerCostLine(
+                    itemCode: (string) $item['item_code'],
+                    label: (string) $item['label'],
+                    amount: $amount,
+                    source: $source,
+                    sortOrder: (int) ($item['sort_order'] ?? 0),
+                );
             }
+        }
+
+        foreach ((array) ($payload['benefits'] ?? []) as $benefit) {
+            $benefit = (array) $benefit;
+            $amountCents = (int) ($benefit['employee_amount_cents'] ?? 0);
+            $employerAmountCents = (int) ($benefit['employer_amount_cents'] ?? 0);
+
+            if ($amountCents < 0 || $employerAmountCents < 0) {
+                throw new \InvalidArgumentException('Benefit amounts cannot be negative.');
+            }
+
+            if ($amountCents === 0 && $employerAmountCents === 0) {
+                continue;
+            }
+
+            $source = new PayrollLineSource((string) ($benefit['source_type'] ?? 'benefit'), (string) ($benefit['source_id'] ?? ''));
+            $itemCode = (string) ($benefit['item_code'] ?? '');
+            $label = (string) ($benefit['label'] ?? '');
+            $sortOrder = (int) ($benefit['sort_order'] ?? 800);
+
+            if ($amountCents > 0) {
+                $otherDeductions[] = new DeductionLine(
+                    itemCode: $itemCode,
+                    label: $label,
+                    amount: Money::fromMinor($amountCents, $currency),
+                    source: $source,
+                    sortOrder: $sortOrder,
+                    taxable: (bool) ($benefit['taxable'] ?? false),
+                );
+            }
+
+            if ($employerAmountCents > 0) {
+                $otherEmployerCosts[] = new EmployerCostLine(
+                    itemCode: $itemCode.'_EMPLOYER',
+                    label: $label.'（单位）',
+                    amount: Money::fromMinor($employerAmountCents, $currency),
+                    source: $source,
+                    sortOrder: $sortOrder + 1,
+                );
+            }
+        }
+
+        foreach ((array) ($payload['performance_bonuses'] ?? []) as $bonus) {
+            $bonus = (array) $bonus;
+            $amountCents = (int) ($bonus['amount_cents'] ?? 0);
+
+            if ($amountCents < 0) {
+                throw new \InvalidArgumentException('Performance bonus amount cannot be negative.');
+            }
+
+            if ($amountCents === 0) {
+                continue;
+            }
+
+            $oneTimeBonuses[] = new EarningLine(
+                itemCode: (string) ($bonus['item_code'] ?? ''),
+                label: (string) ($bonus['label'] ?? ''),
+                amount: Money::fromMinor($amountCents, $currency),
+                source: new PayrollLineSource((string) ($bonus['source_type'] ?? 'performance'), (string) ($bonus['source_id'] ?? '')),
+                sortOrder: (int) ($bonus['sort_order'] ?? 700),
+                taxable: (bool) ($bonus['taxable'] ?? true),
+            );
         }
 
         $manual = [];
@@ -293,14 +408,18 @@ final class CalculationService
                 employeeRate: $hf['employee_rate'],
                 employerRate: $hf['employer_rate'],
             ),
-            overtimeMultiplier: \App\Shared\Money\Decimal::fromString((string) $scheme->overtime_multiplier),
-            salarySourceType: isset($terms['terms_id']) ? 'employment_terms' : 'payroll_scheme',
-            salarySourceId: isset($terms['terms_id']) ? (string) $terms['terms_id'] : (string) $run->scheme_id,
+            overtimeMultiplier: Decimal::fromString((string) ($schemeData['overtime_multiplier'] ?? $scheme->overtime_multiplier)),
+            salarySourceType: $segments !== [] ? 'employee_compensation_segments' : ($compensationSalary !== null ? 'employee_compensation' : (isset($terms['terms_id']) ? 'employment_terms' : 'payroll_scheme')),
+            salarySourceId: $segments !== []
+                ? implode(',', array_map(static fn (array $segment): string => (string) ($segment['compensation_id'] ?? ''), $segments))
+                : ($compensationSalary !== null ? (string) ($compensation['compensation_id'] ?? '') : (isset($terms['terms_id']) ? (string) $terms['terms_id'] : (string) $run->scheme_id)),
             attendanceSourceType: 'time_payroll_input',
             attendanceSourceId: (string) ($payload['attendance']['source_hash'] ?? 'missing'),
             allowances: $allowances,
+            oneTimeBonuses: $oneTimeBonuses,
             manualAdjustments: $manual,
             otherDeductions: $otherDeductions,
+            otherEmployerCosts: $otherEmployerCosts,
         );
 
         return $this->calculator->calculate($input);
@@ -362,7 +481,7 @@ final class CalculationService
 
     /**
      * @param  array<string, mixed>  $payload
-     * @return array{amounts: array{gross_cents: int, deductions_cents: int, net_cents: int, employer_cost_cents: int}, lines: list<PayslipLine>}
+     * @return array{amounts: array{gross_cents: int, deductions_cents: int, net_cents: int, employer_cost_cents: int}, lines: list<PayslipLine>, target_net_cents: int, baseline_net_cents: int}
      */
     private function storeCorrection(PayrollRun $run, PayrollInputSnapshot $snapshot, array $payload, PayrollCalculationResult $revised): array
     {
@@ -427,14 +546,15 @@ final class CalculationService
                 'employer_cost_cents' => $employee->employer_cost_cents,
             ],
             'lines' => $lines,
+            'target_net_cents' => $revised->net->minor(),
+            'baseline_net_cents' => $baseline['net'],
         ];
     }
 
     /**
-     * Baseline is the original full payslip. Each correction run is a
-     * delta against the original; prior correction deltas are separate
-     * payable rows and must not be folded into this baseline or the same
-     * adjustment would be counted twice.
+     * Baseline is the original plus every prior effective correction. The
+     * target snapshot contains all adjustments up to this correction, so the
+     * delta subtracts original + prior corrections rather than original alone.
      *
      * @return array{gross: int, taxable: int, employee_si: int, employee_hf: int, tax: int, deductions: int, employer_si: int, employer_hf: int, employer_cost: int, net: int, ytd_taxable: int, ytd_withheld: int, lines: array<string, array{category: string, amount: int}>}
      */
@@ -476,6 +596,52 @@ final class CalculationService
             'ytd_withheld' => (int) $originalEmployee->ytd_tax_withheld_opening_cents,
             'lines' => $this->linesByKey((int) $originalPayslip->id),
         ];
+
+        // Target-delta semantics: the approved baseline is the original plus
+        // every prior effective correction, never the original alone.
+        $priorCorrections = PayrollRun::query()
+            ->where('correction_of_run_id', $originalRunId)
+            ->whereIn('status', ['PUBLISHED', 'PAID', 'CLOSED'])
+            ->orderBy('id')
+            ->get();
+
+        foreach ($priorCorrections as $prior) {
+            $priorPayslip = Payslip::query()
+                ->where('run_id', $prior->id)
+                ->where('employment_id', $employmentId)
+                ->first();
+            $priorEmployee = PayrollRunEmployee::query()
+                ->where('run_id', $prior->id)
+                ->where('employment_id', $employmentId)
+                ->first();
+
+            if ($priorPayslip === null || $priorEmployee === null) {
+                continue;
+            }
+
+            foreach ([
+                'gross' => (int) $priorPayslip->gross_cents,
+                'deductions' => (int) $priorPayslip->deductions_cents,
+                'net' => (int) $priorPayslip->net_cents,
+                'employer_cost' => (int) $priorPayslip->employer_cost_cents,
+                'taxable' => (int) $priorEmployee->taxable_cents,
+                'employee_si' => (int) $priorEmployee->employee_si_cents,
+                'employee_hf' => (int) $priorEmployee->employee_hf_cents,
+                'tax' => (int) $priorEmployee->tax_cents,
+                'employer_si' => (int) $priorEmployee->employer_si_cents,
+                'employer_hf' => (int) $priorEmployee->employer_hf_cents,
+            ] as $field => $amount) {
+                $baseline[$field] += $amount;
+            }
+
+            foreach ($this->linesByKey((int) $priorPayslip->id) as $key => $line) {
+                if (! isset($baseline['lines'][$key])) {
+                    $baseline['lines'][$key] = $line;
+                } else {
+                    $baseline['lines'][$key]['amount'] += $line['amount'];
+                }
+            }
+        }
 
         return $baseline;
     }
@@ -597,6 +763,168 @@ final class CalculationService
         }
 
         return $created;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $blockers
+     */
+    private function storeBlocked(PayrollRun $run, PayrollInputSnapshot $snapshot, array $blockers): void
+    {
+        $reason = implode('; ', array_map(
+            static fn (array $blocker): string => (string) ($blocker['code'] ?? 'PAYROLL_INPUT_BLOCKED')
+                .': '.(string) ($blocker['message'] ?? 'required payroll input is missing'),
+            $blockers,
+        ));
+
+        PayrollRunEmployee::query()->updateOrCreate(
+            ['run_id' => $run->id, 'employment_id' => $snapshot->employment_id],
+            [
+                'status' => PayrollEmployeeStatus::BLOCKED,
+                'gross_cents' => 0,
+                'taxable_cents' => 0,
+                'deductions_cents' => 0,
+                'net_cents' => 0,
+                'employer_cost_cents' => 0,
+                'employee_si_cents' => 0,
+                'employee_hf_cents' => 0,
+                'employer_si_cents' => 0,
+                'employer_hf_cents' => 0,
+                'tax_cents' => 0,
+                'ytd_applied' => false,
+                'failure_reason' => mb_substr($reason, 0, 1000),
+            ],
+        );
+    }
+
+    /**
+     * Resolve one scheme item to integer cents. The item calculation column is
+     * the execution contract; amount_cents is not a fallback for a malformed
+     * PERCENT/FORMULA item.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    private function schemeItemAmount(array $item, int $baseSalaryCents, AttendanceSummary $attendance): int
+    {
+        $calculation = strtoupper((string) ($item['calculation'] ?? 'FIXED'));
+
+        if ($calculation === 'FIXED') {
+            return max(0, (int) ($item['amount_cents'] ?? 0));
+        }
+
+        if ($calculation === 'PERCENT') {
+            $rateScaled = $item['rate_scaled'] ?? null;
+            if (! is_int($rateScaled) || $rateScaled < 0) {
+                throw new \InvalidArgumentException('PERCENT scheme item requires a non-negative rate_scaled.');
+            }
+
+            return Decimal::fromScaledInt($baseSalaryCents, 0)
+                ->multiply(Decimal::fromScaledInt($rateScaled, 6))
+                ->roundTo(0)
+                ->toScaledInt(0);
+        }
+
+        if ($calculation === 'ATTENDANCE_PRORATE') {
+            $amount = (int) ($item['amount_cents'] ?? 0);
+            if ($attendance->scheduledMinutes <= 0) {
+                return max(0, $amount);
+            }
+
+            return Decimal::fromScaledInt($amount, 0)
+                ->multiply(Decimal::fromScaledInt($attendance->paidMinutes(), 0))
+                ->divide(Decimal::fromScaledInt($attendance->scheduledMinutes, 0), 0)
+                ->toScaledInt(0);
+        }
+
+        if ($calculation === 'FORMULA_LIMITED') {
+            $formula = is_array($item['rule_ast'] ?? null) ? $item['rule_ast'] : ($item['formula_json'] ?? null);
+            if (! is_array($formula)) {
+                throw new \InvalidArgumentException('FORMULA_LIMITED scheme item requires formula_json or a published rule AST.');
+            }
+            if (isset($item['rule_unit']) && $item['rule_unit'] !== 'CENT') {
+                throw new \InvalidArgumentException('Published payroll rule unit must be CENT.');
+            }
+            if (isset($item['rule_hash']) && is_string($item['rule_hash'])) {
+                $encoded = json_encode($formula, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+                if (! hash_equals($item['rule_hash'], hash('sha256', $encoded))) {
+                    throw new \InvalidArgumentException('Published payroll rule hash does not match the frozen AST.');
+                }
+            }
+
+            $compiled = $this->ruleCompiler->compile($formula, [
+                'base_salary', 'base_salary_cents', 'scheduled_minutes', 'worked_minutes',
+                'paid_leave_minutes', 'unpaid_leave_minutes', 'overtime_minutes', 'travel_minutes',
+            ]);
+            $evaluation = $this->ruleEngine->evaluate($compiled, [
+                'base_salary' => Decimal::fromScaledInt($baseSalaryCents, 2)->toDecimalString(),
+                'base_salary_cents' => (string) $baseSalaryCents,
+                'scheduled_minutes' => (string) $attendance->scheduledMinutes,
+                'worked_minutes' => (string) $attendance->workedMinutes,
+                'paid_leave_minutes' => (string) $attendance->paidLeaveMinutes,
+                'unpaid_leave_minutes' => (string) $attendance->unpaidLeaveMinutes,
+                'overtime_minutes' => (string) $attendance->overtimeMinutes,
+                'travel_minutes' => (string) $attendance->travelMinutes,
+            ]);
+            $cents = Decimal::fromString($evaluation->value)->roundTo(0)->toScaledInt(0);
+            if ($cents < 0) {
+                throw new \InvalidArgumentException('Scheme item formula produced a negative amount.');
+            }
+
+            return $cents;
+        }
+
+        throw new \InvalidArgumentException('Unknown scheme item calculation '.$calculation.'.');
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $segments
+     */
+    private function weightedSegmentSalary(array $segments, string $periodStart, string $periodEnd): ?int
+    {
+        $totalDays = $this->weekdayCount($periodStart, $periodEnd);
+
+        if ($totalDays <= 0) {
+            return null;
+        }
+
+        $weighted = 0;
+
+        foreach ($segments as $segment) {
+            $from = max($periodStart, (string) ($segment['segment_from'] ?? ''));
+            $to = min($periodEnd, (string) ($segment['segment_to'] ?? ''));
+            $days = $this->weekdayCount($from, $to);
+
+            if ($days <= 0) {
+                continue;
+            }
+
+            $weighted += intdiv(
+                (int) ($segment['base_salary_cents'] ?? 0) * $days + intdiv($totalDays, 2),
+                $totalDays,
+            );
+        }
+
+        return $weighted > 0 ? $weighted : null;
+    }
+
+    private function weekdayCount(string $from, string $to): int
+    {
+        if ($from === '' || $to === '' || $from > $to) {
+            return 0;
+        }
+
+        $cursor = \Carbon\CarbonImmutable::parse($from, 'UTC')->startOfDay();
+        $end = \Carbon\CarbonImmutable::parse($to, 'UTC')->startOfDay();
+        $days = 0;
+
+        while ($cursor->lessThanOrEqualTo($end)) {
+            if ($cursor->dayOfWeekIso <= 5) {
+                $days++;
+            }
+
+            $cursor = $cursor->addDay();
+        }
+
+        return $days;
     }
 
     private function storeFailure(PayrollRun $run, PayrollInputSnapshot $snapshot, string $reason): void

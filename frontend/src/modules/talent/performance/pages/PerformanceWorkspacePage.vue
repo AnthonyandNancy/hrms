@@ -6,6 +6,7 @@ import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import LoadingState from '@/components/LoadingState.vue'
 import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
+import PerformanceBonusMappingDialog from '../components/PerformanceBonusMappingDialog.vue'
 import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 import {
   createPerformanceCycle,
@@ -20,6 +21,7 @@ const session = useSessionStore()
 
 const canRead = computed(() => session.can('performance.cycle.read'))
 const canManage = computed(() => session.can('performance.cycle.manage'))
+const canMapBonus = computed(() => session.can('performance.result.publish'))
 
 const loading = ref(false)
 const loaded = ref(false)
@@ -32,6 +34,7 @@ const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 const partial = ref(false)
+const bonusDialogOpen = ref(false)
 
 const statusFilter = ref('')
 const nameFilter = ref('')
@@ -199,6 +202,15 @@ onMounted(() => {
       </div>
       <div class="performance-workspace__header-actions">
         <button
+          v-if="canMapBonus"
+          type="button"
+          class="performance-workspace__secondary"
+          data-testid="performance-bonus-mapping-open"
+          @click="bonusDialogOpen = true"
+        >
+          绩效奖金映射
+        </button>
+        <button
           v-if="canManage"
           type="button"
           class="performance-workspace__primary"
@@ -361,6 +373,7 @@ onMounted(() => {
         <el-button type="primary" :loading="createSaving" data-testid="performance-cycle-create-submit" @click="submitCreateCycle">创建</el-button>
       </template>
     </el-dialog>
+    <PerformanceBonusMappingDialog v-if="canMapBonus" v-model="bonusDialogOpen" />
   </div>
 </template>
 

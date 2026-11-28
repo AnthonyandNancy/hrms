@@ -42,6 +42,7 @@ type DiffCounts = {
 
 const ROLE_MANAGE_CAPABILITY = 'iam.role.manage'
 const ORG_ANCHORS = new Set<string>(['ORG_UNIT', 'ORG_SUBTREE'])
+const ID_ANCHORS = new Set<string>(['CASE', 'PAYROLL_RUN'])
 
 const session = useSessionStore()
 const canManage = computed(() => session.can(ROLE_MANAGE_CAPABILITY))
@@ -451,7 +452,7 @@ function onActionToggle(action: { capability: string }, checked: boolean, pageCo
 function onAnchorChange(payload: { capability: string; anchor_type: string; anchor_id: number | null }): void {
   ensureCapabilitySelected(payload.capability)
   anchorByCapability.value[payload.capability] = payload.anchor_type
-  anchorIdByCapability.value[payload.capability] = ORG_ANCHORS.has(payload.anchor_type)
+  anchorIdByCapability.value[payload.capability] = ORG_ANCHORS.has(payload.anchor_type) || ID_ANCHORS.has(payload.anchor_type)
     ? payload.anchor_id
     : null
 }
@@ -474,7 +475,7 @@ function requestSave(): void {
     return
   }
   if (invalidAnchorAction.value !== null) {
-    actionError.value = `请为“${actionOfCapability(invalidAnchorAction.value.capability)}”选择数据范围对应的组织单元，再保存授权。`
+    actionError.value = `请为“${actionOfCapability(invalidAnchorAction.value.capability)}”填写数据范围锚点编号，再保存授权。`
     return
   }
   diffOpen.value = true
@@ -484,7 +485,7 @@ function saveCapabilityGrants(): Array<{ capability: string; anchor_type: string
   return selectedCapabilities.value.map((capability) => ({
     capability,
     anchor_type: anchorByCapability.value[capability] ?? defaultAnchor(capability),
-    anchor_id: ORG_ANCHORS.has(anchorByCapability.value[capability] ?? '')
+    anchor_id: ORG_ANCHORS.has(anchorByCapability.value[capability] ?? '') || ID_ANCHORS.has(anchorByCapability.value[capability] ?? '')
       ? (anchorIdByCapability.value[capability] ?? null)
       : null,
     field_profile: fieldProfileByCapability.value[capability] ?? DISPLAY_CODES.fieldProfile.p0Public,
@@ -690,7 +691,8 @@ function anchorLabel(anchor: string): string {
 }
 
 function selectedGrantCanBeSaved(grant: { anchor_type: string; anchor_id?: number | null }): boolean {
-  return !ORG_ANCHORS.has(grant.anchor_type) || (typeof grant.anchor_id === 'number' && grant.anchor_id > 0)
+  return (!ORG_ANCHORS.has(grant.anchor_type) && !ID_ANCHORS.has(grant.anchor_type))
+    || (typeof grant.anchor_id === 'number' && grant.anchor_id > 0)
 }
 
 const invalidAnchorAction = computed(() => selectedActionGrants.value.find((grant) => !selectedGrantCanBeSaved(grant)) ?? null)

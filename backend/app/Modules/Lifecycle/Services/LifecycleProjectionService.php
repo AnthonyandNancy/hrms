@@ -70,6 +70,8 @@ final class LifecycleProjectionService
         $isAwaitingMe = is_array($case) && ($case['is_awaiting_me'] ?? false) === true;
         $isMine = is_array($case) && ($case['is_mine'] ?? false) === true;
 
+        $effectResult = (array) ($intent->effect_result_json ?? []);
+
         return [
             'case_id' => (int) $intent->case_id,
             'case_no' => $caseNo,
@@ -98,7 +100,16 @@ final class LifecycleProjectionService
             'current_node_key' => is_array($case) ? ($case['current_node_key'] ?? null) : null,
             'before' => (array) ($intent->before_json ?? []),
             'after' => (array) ($intent->after_json ?? []),
-            'effect_result' => (array) ($intent->effect_result_json ?? []),
+            'effect_result' => $effectResult,
+            'contract_draft' => isset($effectResult['contract_draft_id']) ? [
+                'contract_id' => (int) $effectResult['contract_draft_id'],
+                'contract_version_id' => isset($effectResult['contract_version_id']) ? (int) $effectResult['contract_version_id'] : null,
+                'status' => 'DRAFT',
+            ] : null,
+            'compensation_draft' => isset($effectResult['compensation_draft_id']) ? [
+                'compensation_id' => (int) $effectResult['compensation_draft_id'],
+                'status' => 'DRAFT',
+            ] : null,
             'detail_frozen_at' => $intent->detail_frozen_at !== null ? \Carbon\CarbonImmutable::parse((string) $intent->detail_frozen_at)->toIso8601ZuluString() : null,
             'case' => [
                 'id' => (int) $intent->case_id,

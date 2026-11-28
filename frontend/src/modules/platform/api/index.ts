@@ -454,16 +454,21 @@ export type InboxNotification = {
   type: string
   payload: Raw
   read: boolean
+  valid: boolean
+  invalidReason: string | null
   createdAt: string | null
 }
 
 function notificationOf(value: unknown): InboxNotification {
   const row = record(value, '站内通知')
+  const valid = row.valid !== false
   return {
     id: integer(row.id, '通知编号'),
     type: text(row.type, '通知类型'),
-    payload: isRecord(row.payload) ? row.payload : {},
+    payload: valid && isRecord(row.payload) ? row.payload : {},
     read: boolean(row.read),
+    valid,
+    invalidReason: nullableText(row.invalidReason),
     createdAt: nullableText(row.createdAt) ?? nullableText(row.created_at),
   }
 }

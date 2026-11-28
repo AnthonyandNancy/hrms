@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Modules\People\Http\Controllers;
 
+use App\Modules\IAM\Contracts\AllowedActionResolver;
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\Lifecycle\Contracts\EmploymentContractVersionLedger;
 use App\Modules\People\Contracts\ContractAccess;
 use App\Modules\People\Contracts\ContractFieldPolicy;
+use App\Modules\People\Models\Assignment;
 use App\Modules\People\Models\EmploymentContract;
 use App\Modules\People\Services\EmploymentContractService;
 use App\Shared\ApiResponse;
@@ -37,6 +39,7 @@ final class EmploymentContractController
         private readonly ContractAccess $access,
         private readonly ContractFieldPolicy $fields,
         private readonly CommandRunner $commands,
+        private readonly AllowedActionResolver $allowedActions,
     ) {}
 
     public function index(Request $request, int $employmentId): JsonResponse
@@ -79,6 +82,8 @@ final class EmploymentContractController
             'signed_on' => ['nullable', new BusinessDateRule],
             'status' => ['sometimes', 'string', 'in:DRAFT,ACTIVE'],
             'terms_summary' => ['nullable', 'string', 'max:2000'],
+            'agreed_salary_cents' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'agreed_currency' => ['sometimes', 'nullable', 'string', 'regex:/^[A-Za-z]{3}$/'],
             'renewal_of_contract_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'reason' => ['nullable', 'string', 'min:3', 'max:500'],
         ]);
@@ -119,6 +124,8 @@ final class EmploymentContractController
                             'work_location' => $data['work_location'] ?? null,
                             'terms_summary' => $data['terms_summary'] ?? null,
                             'previous_contract_id' => $contract['previous_contract_id'],
+                            'agreed_salary_cents' => isset($data['agreed_salary_cents']) ? (int) $data['agreed_salary_cents'] : null,
+                            'agreed_currency' => isset($data['agreed_currency']) ? strtoupper((string) $data['agreed_currency']) : null,
                         ],
                         actorUserId: $principal->userId(),
                     );
@@ -262,12 +269,88 @@ final class EmploymentContractController
             throw new NotFoundOrForbiddenException;
         }
 
-        return ApiResponse::ok($this->fields->project(
+        $asOf = $this->businessDates->today()->value();
+        $history = $this->versions->history($id);
+        $latest = $history !== [] ? $history[count($history) - 1] : [];
+        $detail = $this->fields->project(
             $principal,
             $contract,
-            $this->contracts->show($employmentId, $id),
-            $this->businessDates->today()->value(),
-        ));
+            [
+                ...$this->contracts->show($employmentId, $id),
+                'agreed_salary_cents' => $latest['agreed_salary_minor'] ?? null,
+                'agreed_currency' => $latest['agreed_currency'] ?? null,
+                'source_version' => $latest['terms_hash'] ?? null,
+            ],
+            $asOf,
+        );
+        $assignment = Assignment::query()
+            ->where('employment_id', (int) $contract->employment_id)
+            ->where('valid_from', '<=', $asOf)
+            ->where('valid_to', '>', $asOf)
+            ->orderByDesc('is_primary')
+            ->orderBy('id')
+            ->first();
+
+        return ApiResponse::ok([
+            ...$detail,
+            'state' => (string) $contract->status,
+            'version' => (int) $contract->version,
+            'allowed_actions' => $this->allowedActions->for(
+                $principal,
+                'contract',
+                (int) $contract->id,
+                [
+                    'status' => (string) $contract->status,
+                    'subject_employment_id' => (int) $contract->employment_id,
+                    'org_unit_id' => $assignment !== null ? (int) $assignment->org_unit_id : null,
+                ],
+                $asOf,
+            ),
+        ]);
+    }
+
+    /**
+     * Version ledger for the employee contract selector. Only versions that
+     * belong to the scoped employment are returned; Payroll uses the stable
+     * version id and terms hash rather than re-reading the current parent row.
+     */
+    public function versions(Request $request, int $employmentId): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $this->assertCapability($principal, 'people.contract.read');
+
+        if (! $this->access->employmentVisible($principal, $employmentId, 'people.contract.read')) {
+            throw new NotFoundOrForbiddenException;
+        }
+
+        $data = $request->validate([
+            'as_of' => ['nullable', new BusinessDateRule],
+        ]);
+        $asOf = isset($data['as_of'])
+            ? (string) $data['as_of']
+            : $this->businessDates->today()->value();
+        $contractIds = EmploymentContract::query()
+            ->where('employment_id', $employmentId)
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(static fn (mixed $value): int => (int) $value)
+            ->all();
+        $items = [];
+
+        foreach ($contractIds as $contractId) {
+            foreach ($this->versions->history($contractId) as $version) {
+                if ((string) $version['effective_from'] <= $asOf) {
+                    $items[] = $version;
+                }
+            }
+        }
+
+        usort($items, static function (array $left, array $right): int {
+            return [$left['effective_from'], $left['contract_id'], $left['id']]
+                <=> [$right['effective_from'], $right['contract_id'], $right['id']];
+        });
+
+        return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
     }
 
     public function expiring(Request $request): JsonResponse
