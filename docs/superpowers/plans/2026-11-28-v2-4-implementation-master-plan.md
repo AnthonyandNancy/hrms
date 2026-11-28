@@ -87,7 +87,7 @@
 | T09 | Snapshot v2 与员工级方案 | COMPLETE | T09a-T09d | `3cb50af`; `docs/implementation/v24/09-payroll-snapshot/implementation-report.md`; `gate-all-t09d2.log`; T14/T15 must replace default adapters and rerun |
 | T10 | 受限规则引擎 | PENDING | — | — |
 | T11 | 批次成员、阻断与正交状态 | COMPLETE | T11a/T11b1/T11b2 | `0dfd885`; `docs/implementation/v24/11-payroll-runs/implementation-report.md`; `gate-all-t11b2.log`; member form polish in T17 |
-| T12 | 月中分段与周期级税费 | PENDING | — | — |
+| T12 | 月中分段与周期级税费 | IN PROGRESS | T12a weighted segment salary merged; once-only tax/SI detail and UI pending | `9cb0709`; `docs/implementation/v24/12-midmonth/implementation-report.md`; `gate-all-t12a.log` |
 | T13 | 累计更正与 signed YTD | PENDING | — | — |
 | T14 | 福利计薪输入与冲销 | PENDING | — | — |
 | T15 | 绩效奖金与 Offer/培训链路 | PENDING | — | — |
@@ -120,7 +120,8 @@
 | 2026-11-28 | T11a run members | `6a4df39` + full gate | 22 gates PASS in 236.3s; payroll_run_members, PREPARER source, preassigned REVIEWER access, detail membership; log `docs/implementation/v24/11-payroll-runs/gate-all-t11a.log` | T11b followed. |
 | 2026-11-28 | T11b1 orthogonal states | `5ead6a6` + full gate | 22 gates PASS in 241.3s; publish/disbursement flags independent, close prerequisites, YTD-after-disburse trigger; log `docs/implementation/v24/11-payroll-runs/gate-all-t11b1.log` | T11b2 followed. |
 | 2026-11-28 | T11b2 member actions | `0dfd885` + full gate | 22 gates PASS in 241.3s; member HTTP/actions, blocked/orthogonal action projection; log `docs/implementation/v24/11-payroll-runs/gate-all-t11b2.log` | T11 complete; member form visual polish in T17. |
-| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T11 complete, T16 blocked; T08/T10/T12–T15/T17/T19 not implemented; MCP 0 executed | Continue Payroll rule/correction chain and T16. |
+| 2026-11-28 | T12a mid-month segments | `9cb0709` + full gate | 22 gates PASS in 238.6s; 8500 golden weighted base from two compensation segments; log `docs/implementation/v24/12-midmonth/gate-all-t12a.log` | Once-only tax/SI and line/UI segment detail remain T12b. |
+| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T12b/T16 blocked; T08/T10/T13–T15/T17/T19 not implemented; MCP 0 executed | Continue T12b and Payroll rule/correction chain. |
 
 ---
 
