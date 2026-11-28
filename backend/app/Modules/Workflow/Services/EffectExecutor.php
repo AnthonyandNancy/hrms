@@ -221,6 +221,147 @@ final class EffectExecutor
     }
 
     /**
+     * Apply one declared reverse effect behind an existing APPLIED effect.
+     * The original effect remains immutable evidence; reversal is a separate
+     * effect row linked through reversal_of_id. Terminal replays return the
+     * existing REVERSED outcome without invoking the handler again.
+     */
+    public function reverse(int $effectId, string $reason = '', string $effectiveOn = ''): EffectResult
+    {
+        return DB::transaction(function () use ($effectId, $reason, $effectiveOn): EffectResult {
+            /** @var Effect $original */
+            $original = Effect::query()
+                ->whereKey($effectId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $existing = Effect::query()
+                ->where('reversal_of_id', $original->id)
+                ->first();
+
+            if ($existing !== null) {
+                if ($existing->status === EffectStatus::REVERSED) {
+                    return EffectResult::reversed();
+                }
+
+                if ($existing->status !== EffectStatus::FAILED) {
+                    return new EffectResult($existing->status);
+                }
+
+                // A failed reversal is retryable while the original effect is
+                // still APPLIED. Never flip the original to REVERSED until the
+                // reverse handler actually succeeds.
+                $retried = $this->executeReversalLocked($existing);
+                if ($retried->status === EffectStatus::REVERSED) {
+                    $original->forceFill(['status' => EffectStatus::REVERSED, 'updated_at' => $this->clock->now()])->save();
+                    $this->projection->refresh($original->case);
+                }
+
+                return $retried;
+            }
+
+            if ($original->status !== EffectStatus::APPLIED) {
+                throw new ConflictException('Only an applied effect can be reversed.', [
+                    'reason' => 'EFFECT_NOT_REVERSIBLE',
+                    'effect_id' => $original->id,
+                    'status' => $original->status->value,
+                ]);
+            }
+
+            $now = $this->clock->now();
+            $effectSeq = ((int) Effect::query()
+                ->where('effect_type', $original->effect_type)
+                ->where('aggregate_id', $original->aggregate_id)
+                ->max('effect_seq')) + 1;
+
+            $reversalType = isset($original->payload_json['reverse_effect_type'])
+                && is_string($original->payload_json['reverse_effect_type'])
+                ? (string) $original->payload_json['reverse_effect_type']
+                : $original->effect_type;
+
+            /** @var Effect $reversal */
+            $reversal = Effect::query()->create([
+                'case_id' => $original->case_id,
+                'decision_id' => $original->decision_id,
+                'effect_type' => $reversalType,
+                'aggregate_type' => $original->aggregate_type,
+                'aggregate_id' => $original->aggregate_id,
+                'effect_seq' => $effectSeq,
+                'status' => EffectStatus::SCHEDULED,
+                'scheduled_for' => null,
+                'applied_at' => null,
+                'failed_at' => null,
+                'failure_reason' => null,
+                'attempts' => 0,
+                'reversal_of_id' => $original->id,
+                'payload_json' => [
+                    ...((array) ($original->payload_json ?? [])),
+                    'reversal_reason' => $reason,
+                    'effective_on' => $effectiveOn,
+                ],
+                'requires_escalation' => false,
+            ]);
+
+            $result = $this->executeReversalLocked($reversal);
+
+            if ($result->status !== EffectStatus::REVERSED) {
+                // The original stays APPLIED, and the reversal row remains
+                // retryable. Returning FAILED would let business callers falsely
+                // treat a revoked projection as committed.
+                return $result;
+            }
+
+            $original->forceFill(['status' => EffectStatus::REVERSED, 'updated_at' => $now])->save();
+            $this->projection->refresh($original->case);
+
+            return $result;
+        });
+    }
+
+    private function executeReversalLocked(Effect $effect): EffectResult
+    {
+        $handler = $this->registry->resolve($effect->effect_type);
+        $now = $this->clock->now();
+
+        $effect->forceFill([
+            'attempts' => $effect->attempts + 1,
+            'failure_reason' => null,
+        ])->save();
+
+        try {
+            $result = DB::transaction(fn (): EffectResult => $handler->reverse($effect));
+        } catch (Throwable $exception) {
+            $this->recordFailure($effect, $exception, $now);
+
+            return new EffectResult(EffectStatus::FAILED);
+        }
+
+        $effect->forceFill([
+            'status' => EffectStatus::REVERSED,
+            'applied_at' => $now,
+            'failed_at' => null,
+            'failure_reason' => null,
+            'requires_escalation' => false,
+        ])->save();
+
+        CaseEvent::query()->create([
+            'case_id' => $effect->case_id,
+            'event_type' => 'effect.reversed',
+            'actor_user_id' => null,
+            'payload_json' => [
+                'case_id' => $effect->case_id,
+                'effect_id' => $effect->id,
+                'effect_type' => $effect->effect_type,
+                'reversal_of_id' => $effect->reversal_of_id,
+                'status' => EffectStatus::REVERSED->value,
+            ],
+            'occurred_at' => $now,
+        ]);
+
+        return EffectResult::reversed();
+    }
+
+    /**
      * Retry a FAILED effect. Terminal effects are a no-op. Returns null when
      * the retry budget is exhausted and escalation was flagged.
      */

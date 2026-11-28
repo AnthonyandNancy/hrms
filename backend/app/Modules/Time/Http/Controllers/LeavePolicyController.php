@@ -71,7 +71,10 @@ final class LeavePolicyController
             'accrual' => ['sometimes', 'array'],
             'accrual.mode' => ['sometimes', 'string', 'in:ANNUAL_FIXED,MONTHLY_FIXED,NONE'],
             'accrual.minutes_per_year' => ['sometimes', 'integer', 'min:0'],
-            'accrual.payroll_treatment' => ['sometimes', 'string', 'in:PAID,PARTIAL,UNPAID'],
+            'payroll_treatment' => ['sometimes', 'nullable', 'string', 'in:PAID,PARTIAL,UNPAID,UNRESOLVED'],
+            'paid_ratio_scaled' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:999999'],
+            // Legacy nested shape accepted only for compatibility.
+            'accrual.payroll_treatment' => ['sometimes', 'string', 'in:PAID,PARTIAL,UNPAID,UNRESOLVED'],
             'accrual.paid_ratio_scaled' => ['sometimes', 'integer', 'min:1', 'max:999999'],
             'carryover' => ['sometimes', 'nullable', 'array'],
             'min_notice_days' => ['sometimes', 'integer', 'min:0', 'max:365'],

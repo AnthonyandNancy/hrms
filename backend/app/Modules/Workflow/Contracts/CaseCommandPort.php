@@ -50,6 +50,21 @@ interface CaseCommandPort
         WorkflowPrincipal $principal,
         int $caseId,
         string $reason,
+        ?string $authorizingCapability = null,
+    ): array;
+
+    /**
+     * Apply the case's declared reverse effect(s) to already-applied effects.
+     * Idempotent: terminal REVERSED effects return their existing result.
+     *
+     * @return array{case_id: int, effect_status: string, reversed: int}
+     */
+    public function reverseEffect(
+        WorkflowPrincipal $principal,
+        int $caseId,
+        string $reason,
+        string $effectiveOn,
+        ?string $authorizingCapability = null,
     ): array;
 
     /**

@@ -18,6 +18,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property \Carbon\CarbonImmutable $effective_to
  * @property array<string, mixed> $applies_to_json
  * @property array<string, mixed> $accrual_json
+ * @property string|null $payroll_treatment
+ * @property int|null $paid_ratio_scaled
  * @property array<string, mixed>|null $carryover_json
  * @property int $min_notice_days
  * @property int|null $max_consecutive_days
@@ -40,6 +42,8 @@ final class LeavePolicyVersion extends Model
         'effective_to',
         'applies_to_json',
         'accrual_json',
+        'payroll_treatment',
+        'paid_ratio_scaled',
         'carryover_json',
         'min_notice_days',
         'max_consecutive_days',
@@ -64,6 +68,8 @@ final class LeavePolicyVersion extends Model
             'effective_to' => 'immutable_date:Y-m-d',
             'applies_to_json' => 'array',
             'accrual_json' => 'array',
+            'payroll_treatment' => 'string',
+            'paid_ratio_scaled' => 'integer',
             'carryover_json' => 'array',
             'min_notice_days' => 'integer',
             'max_consecutive_days' => 'integer',

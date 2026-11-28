@@ -428,26 +428,35 @@ final class LeaveRequestService
             $reversed = 0;
 
             if ($shouldRevoke) {
-                $consumed = $this->consumedMinutes($projection);
+                $reversed = $this->approvedEffectReversal(
+                    projection: $projection,
+                    reason: $reason !== '' ? $reason : 'Leave revoked',
+                    caseStatus: $case !== null ? (string) $case->status : null,
+                    authorizingCapability: $managerOverride ? 'time.leave.admin' : null,
+                );
 
-                if ($consumed > 0) {
-                    $this->ledger->reverse(
-                        employmentId: (int) $projection->employment_id,
-                        leaveTypeId: (int) $projection->leave_type_id,
-                        minutes: $consumed,
-                        businessDate: $businessDate,
-                        sourceType: 'LEAVE_REVOKE',
-                        sourceId: (string) $caseId,
-                        reason: $reason !== '' ? $reason : 'Leave revoked',
-                        targetAccount: 'CONSUME',
-                        caseId: $caseId,
-                    );
-                    $reversed = $consumed;
+                if ($reversed === 0) {
+                    $consumed = $this->consumedMinutes($projection);
+
+                    if ($consumed > 0) {
+                        $this->ledger->reverse(
+                            employmentId: (int) $projection->employment_id,
+                            leaveTypeId: (int) $projection->leave_type_id,
+                            minutes: $consumed,
+                            businessDate: $businessDate,
+                            sourceType: 'LEAVE_REVOKE',
+                            sourceId: (string) $caseId,
+                            reason: $reason !== '' ? $reason : 'Leave revoked',
+                            targetAccount: 'CONSUME',
+                            caseId: $caseId,
+                        );
+                        $reversed = $consumed;
+                    }
                 }
 
                 // If an approval consumed the reservation, CONSUME already
                 // released it. Only release a still-outstanding hold.
-                if ($consumed === 0) {
+                if ($this->consumedMinutes($projection) === 0) {
                     $this->ledger->release(
                         employmentId: (int) $projection->employment_id,
                         leaveTypeId: (int) $projection->leave_type_id,
@@ -462,7 +471,12 @@ final class LeaveRequestService
                 }
 
                 if ($case !== null && in_array($case->status, ['SUBMITTED', 'IN_REVIEW', 'DRAFT'], true)) {
-                    $this->workflow->requestCancel($caseId, $actorUserId, $reason);
+                    $this->workflow->requestCancel(
+                        $caseId,
+                        $actorUserId,
+                        $reason,
+                        $managerOverride ? 'time.leave.admin' : null,
+                    );
                 }
 
                 $projection->forceFill(['state' => 'REVOKED', 'updated_at' => $this->clock->now()])->save();
@@ -481,7 +495,12 @@ final class LeaveRequestService
                 $released = $minutes;
 
                 if ($case !== null && in_array($case->status, ['SUBMITTED', 'IN_REVIEW', 'DRAFT'], true)) {
-                    $this->workflow->requestCancel($caseId, $actorUserId, $reason);
+                    $this->workflow->requestCancel(
+                        $caseId,
+                        $actorUserId,
+                        $reason,
+                        $managerOverride ? 'time.leave.admin' : null,
+                    );
                 }
 
                 $projection->forceFill(['state' => 'CANCELLED', 'updated_at' => $this->clock->now()])->save();
@@ -706,6 +725,55 @@ final class LeaveRequestService
         }
 
         return $query->first();
+    }
+
+    /**
+     * Revocation originates in Time, while the original approval effect lives
+     * in Workflow. When a reverse effect is declared on the case snapshot it is
+     * executed now so the append-only REVERSE and the effect status stay one
+     * fact. Legacy snapshots without that declaration fall back to the ledger
+     * path below; the ledger source key still makes either path idempotent.
+     *
+     * @return int reversed minutes, or 0 when no reverse effect was executed
+     */
+    private function approvedEffectReversal(
+        LeaveRequestProjection $projection,
+        string $reason,
+        ?string $caseStatus,
+        ?string $authorizingCapability = null,
+    ): int {
+        if (! in_array(strtoupper((string) $caseStatus), ['APPROVED'], true)) {
+            return 0;
+        }
+
+        $case = $this->workflow->case((int) $projection->case_id);
+
+        if ($case === null || $case->effectStatus !== 'APPLIED') {
+            return 0;
+        }
+
+        $consumed = $this->consumedMinutes($projection);
+
+        if ($consumed === 0) {
+            return 0;
+        }
+
+        $result = $this->workflow->reverseEffect(
+            caseId: (int) $projection->case_id,
+            reason: $reason,
+            effectiveOn: $this->clock->now()->toDateString(),
+            authorizingCapability: $authorizingCapability,
+        );
+
+        if ((int) ($result['reversed'] ?? 0) < 1) {
+            throw new ConflictException('The Workflow effect reversal did not complete.', [
+                'reason' => 'EFFECT_REVERSAL_FAILED',
+                'case_id' => (int) $projection->case_id,
+                'effect_status' => (string) ($result['effect_status'] ?? 'UNKNOWN'),
+            ]);
+        }
+
+        return $consumed;
     }
 
     private function consumedMinutes(LeaveRequestProjection $projection): int

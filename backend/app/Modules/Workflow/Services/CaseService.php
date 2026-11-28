@@ -31,6 +31,7 @@ final class CaseService
     public function __construct(
         private readonly Clock $clock,
         private readonly AssigneeDirectory $assignees,
+        private readonly EffectService $effects,
     ) {}
 
     /**
@@ -163,16 +164,21 @@ final class CaseService
         });
     }
 
-    public function withdraw(WorkflowPrincipal $principal, CaseModel $case, string $comment): CaseModel
-    {
-        return DB::transaction(function () use ($principal, $case, $comment): CaseModel {
+    public function withdraw(
+        WorkflowPrincipal $principal,
+        CaseModel $case,
+        string $comment,
+        ?string $authorizingCapability = null,
+    ): CaseModel {
+        return DB::transaction(function () use ($principal, $case, $comment, $authorizingCapability): CaseModel {
             /** @var CaseModel $locked */
             $locked = CaseModel::query()
                 ->whereKey($case->id)
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($locked->requester_user_id !== $principal->userId) {
+            if ($locked->requester_user_id !== $principal->userId
+                && ($authorizingCapability === null || ! $principal->can($authorizingCapability))) {
                 throw NotFoundException::forResource();
             }
 
@@ -197,6 +203,7 @@ final class CaseService
                 'case_id' => $locked->id,
                 'comment' => $comment,
             ], $now);
+            $this->effects->materializeOutcome($locked);
 
             return $locked->fresh() ?? $locked;
         });

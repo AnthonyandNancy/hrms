@@ -530,7 +530,7 @@ final class TimeFactVersionService
             $state = strtoupper((string) $projection->state);
             $caseId = (int) $projection->case_id;
 
-            if (in_array($state, ['REJECTED', 'WITHDRAWN', 'CANCELLED', 'RELEASED'], true)) {
+            if (in_array($state, ['REJECTED', 'WITHDRAWN', 'RETURNED', 'CANCELLED', 'RELEASED'], true)) {
                 continue;
             }
 
@@ -957,9 +957,15 @@ final class TimeFactVersionService
      */
     private function leaveTreatment(LeavePolicyVersion $policy): ?array
     {
+        $columnTreatment = is_string($policy->payroll_treatment)
+            ? strtoupper(trim($policy->payroll_treatment))
+            : '';
+        $columnRatio = $policy->paid_ratio_scaled !== null ? (int) $policy->paid_ratio_scaled : null;
         $accrual = (array) $policy->accrual_json;
-        $treatment = strtoupper((string) ($accrual['payroll_treatment'] ?? 'UNRESOLVED'));
-        $ratio = (int) ($accrual['paid_ratio_scaled'] ?? 0);
+        $treatment = $columnTreatment !== ''
+            ? $columnTreatment
+            : strtoupper((string) ($accrual['payroll_treatment'] ?? 'UNRESOLVED'));
+        $ratio = $columnRatio ?? (int) ($accrual['paid_ratio_scaled'] ?? 0);
 
         if ($treatment === 'PAID') {
             return ['treatment' => 'PAID', 'paid_ratio_scaled' => 1_000_000];
@@ -1057,7 +1063,7 @@ final class TimeFactVersionService
         $leaveEmploymentIds = LeaveRequestProjection::query()
             ->where('from_date', '<=', $end)
             ->where('to_date', '>=', $start)
-            ->whereNotIn('state', ['REJECTED', 'WITHDRAWN', 'CANCELLED', 'RELEASED'])
+            ->whereNotIn('state', ['REJECTED', 'WITHDRAWN', 'RETURNED', 'CANCELLED', 'RELEASED'])
             ->pluck('employment_id')
             ->map(static fn (mixed $id): int => (int) $id)
             ->all();
