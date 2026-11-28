@@ -36,7 +36,7 @@ It is **not** a completed V2.4 business delivery:
 | T09 payroll snapshot v2 | COMPLETE | `docs/implementation/v24/09-payroll-snapshot/implementation-report.md`; gates `gate-all-t09ab.log`, `gate-all-t09c.log`, `gate-all-t09d2.log` | Benefit/performance adapters are empty/default until T14/T15 replace and rerun |
 | T12 mid-month compensation | COMPLETE | `docs/implementation/v24/12-midmonth/implementation-report.md`; gates `gate-all-t12a.log`, `gate-all-t12b.log` | MCP end-to-end evidence remains T18 |
 | T13 signed YTD/corrections | PARTIAL | `docs/implementation/v24/13-corrections/implementation-report.md`; gates `gate-all-t13ab.log`, `gate-all-t13c.log` | Signed ledger/chain + exact AC-12 complete; unpaid void/retry/action UI remain |
-| T14 benefits→Payroll | PARTIAL | `docs/implementation/v24/14-benefits/implementation-report.md`; gate `gate-all-t14.log` | Multi-plan/reversal/employer cost and frozen snapshot pass; frontend reversal action remains |
+| T14 benefits→Payroll | PARTIAL | `docs/implementation/v24/14-benefits/implementation-report.md`; gates `gate-all-t14.log`, `gate-all-t14-ui.log` | Multi-plan/reversal/employer cost/frozen snapshot/UI reversal pass; field-profile masking remains |
 | T11 payroll runs/membership | COMPLETE | `docs/implementation/v24/11-payroll-runs/implementation-report.md`; gates `gate-all-t11a.log`, `gate-all-t11b1.log`, `gate-all-t11b2.log` | Member form visual polish remains T17 |
 | T18 MCP acceptance assets | IN PROGRESS | `docs/implementation/v24/18-mcp-acceptance/` | Assets only; no MCP execution |
 
@@ -123,4 +123,4 @@ These branches are intentionally **not merged** because independent review found
 
 ## 7. Final statement
 
-The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T13d/T14-T15/T16 blocked and T08/T10/T17/T19 outstanding.
+The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T14 masking/T15/T16/T13d blocked and T08/T10/T17/T19 outstanding.

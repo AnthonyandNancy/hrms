@@ -89,7 +89,7 @@
 | T11 | 批次成员、阻断与正交状态 | COMPLETE | T11a/T11b1/T11b2 | `0dfd885`; `docs/implementation/v24/11-payroll-runs/implementation-report.md`; `gate-all-t11b2.log`; member form polish in T17 |
 | T12 | 月中分段与周期级税费 | COMPLETE | T12a/T12b | `8b97b38`; `docs/implementation/v24/12-midmonth/implementation-report.md`; `gate-all-t12b.log` | MCP still required for end-to-end acceptance. |
 | T13 | 累计更正与 signed YTD | IN PROGRESS | T13a-T13c merged; exact AC-12 passes; unpaid void/retry/actions pending | `55566e2`; `docs/implementation/v24/13-corrections/implementation-report.md`; `gate-all-t13c.log` |
-| T14 | 福利计薪输入与冲销 | IN PROGRESS | T14a/T14b merged; benefits→Payroll multi-plan/reversal/employer cost; UI reversal action pending | `4bc2edb`; `docs/implementation/v24/14-benefits/implementation-report.md`; `gate-all-t14.log` |
+| T14 | 福利计薪输入与冲销 | IN PROGRESS | T14a-T14c merged; UI reversal done; field-profile masking pending | `894f056`; `docs/implementation/v24/14-benefits/implementation-report.md`; `gate-all-t14-ui.log` |
 | T15 | 绩效奖金与 Offer/培训链路 | PENDING | — | — |
 | T16 | 通知状态与报表字段裁剪 | BLOCKED | T16a/T16b/T16c 拆分；分支未合并 | `79de276` on `v24-t16-engagement-reporting`; review findings |
 | T17 | 前端精确金额、动作与自助 | PENDING | — | — |
@@ -124,8 +124,9 @@
 | 2026-11-28 | T12b segment evidence | `8b97b38` + full gate | 22 gates PASS in 234.5s; once-only SI/HF/tax control, segment provenance/UI, overlap/gap blockers; log `docs/implementation/v24/12-midmonth/gate-all-t12b.log` | T12 complete; MCP AC evidence still pending. |
 | 2026-11-28 | T13a/T13b signed YTD | `6dc0a81` + full gate | 22 gates PASS in 284.2s; signed append-only ledger, negative carry-forward, idempotent publish, correction chain identity and UI; log `docs/implementation/v24/13-corrections/gate-all-t13ab.log` | T13c followed. |
 | 2026-11-28 | T13c cumulative target/delta | `55566e2` + full gate | 22 gates PASS in 237.7s; AC-12 exact 8080→8300→8350, +220/+50, target/baseline/delta/cumulative and UI; log `docs/implementation/v24/13-corrections/gate-all-t13c.log` | T14 followed. |
-| 2026-11-28 | T14 benefit linkage | `4bc2edb` + full gate | 22 gates PASS in 243.2s; multi-plan/period transactions, append-only reversal, real benefit input port, employer cost lines, frozen-snapshot regression; log `docs/implementation/v24/14-benefits/gate-all-t14.log` | Frontend reversal/form and T15 performance remain. |
-| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T14/T16/T13d blocked; T08/T10/T15/T17/T19 not fully implemented; MCP 0 executed | Continue T14 UI or T15/T10. |
+| 2026-11-28 | T14 benefit linkage | `4bc2edb` + full gate | 22 gates PASS in 243.2s; multi-plan/period transactions, append-only reversal, real benefit input port, employer cost lines, frozen-snapshot regression; log `docs/implementation/v24/14-benefits/gate-all-t14.log` | T14 UI followed. |
+| 2026-11-28 | T14 reversal UI | `894f056` + full gate | 22 gates PASS in 237.5s; ledger reversal button/prompt/API/idempotency and Chinese failure copy; log `docs/implementation/v24/14-benefits/gate-all-t14-ui.log` | Field-profile masking and T15 performance remain. |
+| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T14 masking/T16/T13d blocked; T08/T10/T15/T17/T19 not fully implemented; MCP 0 executed | Continue T14 masking or T15/T10. |
 
 ---
 
