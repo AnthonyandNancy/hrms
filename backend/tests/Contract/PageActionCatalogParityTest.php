@@ -34,6 +34,7 @@ final class PageActionCatalogParityTest extends TestCase
 
         $this->assertSame([
             'payroll.run.detail.approve',
+            'payroll.run.detail.assign-member',
             'payroll.run.detail.calculate',
             'payroll.run.detail.cancel',
             'payroll.run.detail.close',

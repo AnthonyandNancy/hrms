@@ -55,3 +55,20 @@ action/state tests.
 - Added HTTP coverage for member assignment and allowed-action projection.
 - Verification: payroll suite 108 tests / 509 assertions; Pint, PHPStan and
   arch green.
+
+## T11b2 — member HTTP action and run-state projection
+
+- Added `POST /v1/payroll/runs/{id}/members` and its generated action catalog
+  entry `payroll.run.detail.assign-member`.
+- PermissionResourceCatalog, action-input, generated PHP/TS/JSON manifests,
+  route ledger and OpenAPI are synchronized.
+- Run detail exposes payslip/disbursement flags and preassigned members;
+  allowed actions now model publish-before-disburse, disburse-before-publish
+  and close-only-when-both requirements.
+- Added HTTP regression for member assignment and server-computed action
+  projection.
+- Verification: payroll 108 tests / 509 assertions; contract suite 39 tests /
+  4,922 assertions; Pint, PHPStan and arch green.
+
+Remaining T11: blocked-run action projection regression and frontend member
+assignment form (T17 surface).

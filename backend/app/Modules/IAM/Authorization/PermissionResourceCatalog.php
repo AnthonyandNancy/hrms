@@ -690,7 +690,7 @@ final class PermissionResourceCatalog
                 'order' => 0,
                 'icon' => 'Menu',
                 'component_key' => 'payroll/runs/by-id',
-                'required_apis' => ['GET /v1/payroll/runs/{id}', 'GET /v1/payroll/runs/{id}/employees', 'POST /v1/payroll/runs/{id}/lock-inputs', 'POST /v1/payroll/runs/{id}/calculate', 'POST /v1/payroll/runs/{id}/review', 'POST /v1/payroll/runs/{id}/approve', 'POST /v1/payroll/runs/{id}/publish', 'POST /v1/payroll/runs/{id}/cancel', 'POST /v1/payroll/runs/{id}/reopen', 'POST /v1/payroll/runs/{id}/corrections', 'POST /v1/payroll/runs/{id}/mark-paid', 'POST /v1/payroll/runs/{id}/close'],
+                'required_apis' => ['GET /v1/payroll/runs/{id}', 'GET /v1/payroll/runs/{id}/employees', 'POST /v1/payroll/runs/{id}/lock-inputs', 'POST /v1/payroll/runs/{id}/calculate', 'POST /v1/payroll/runs/{id}/review', 'POST /v1/payroll/runs/{id}/approve', 'POST /v1/payroll/runs/{id}/publish', 'POST /v1/payroll/runs/{id}/cancel', 'POST /v1/payroll/runs/{id}/reopen', 'POST /v1/payroll/runs/{id}/corrections', 'POST /v1/payroll/runs/{id}/mark-paid', 'POST /v1/payroll/runs/{id}/close', 'POST /v1/payroll/runs/{id}/members'],
                 'states' => ['loading', 'empty', 'error', 'forbidden', 'partial'],
                 'negative_tests' => ['unauthenticated', 'no_capability', 'cross_anchor', 'field_or_export'],
                 'layer' => 'business',
