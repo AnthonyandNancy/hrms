@@ -231,6 +231,7 @@ final class RecruitmentService
                 'status' => 'PENDING_APPROVAL',
                 'base_salary_minor' => (int) $input['base_salary_minor'],
                 'salary_currency' => (string) $input['salary_currency'],
+                'salary_scheme_code' => isset($input['salary_scheme_code']) ? (string) $input['salary_scheme_code'] : null,
                 'start_date' => (string) $input['start_date'],
                 'recorded_at' => $this->clock->now(),
             ]);
@@ -294,6 +295,7 @@ final class RecruitmentService
                         'employee_no' => (string) $input['employee_no'],
                         'hire_date' => (string) ($input['hire_date'] ?? $offer->start_date),
                         'business_date' => $businessDate,
+                        'terms' => $this->offerCompensationTerms($offer),
                     ]);
                     $offer->forceFill(['onboarding_case_id' => $draft['case_id']])->save();
                 }
@@ -345,6 +347,7 @@ final class RecruitmentService
                 'employee_no' => (string) $input['employee_no'],
                 'hire_date' => (string) ($input['hire_date'] ?? $offer->start_date),
                 'business_date' => $businessDate,
+                'terms' => $this->offerCompensationTerms($offer),
             ]);
 
             $offer->forceFill(['onboarding_case_id' => $draft['case_id']])->save();
@@ -357,6 +360,18 @@ final class RecruitmentService
                 'replayed' => false,
             ];
         });
+    }
+
+    /**
+     * @return array{base_salary_minor:int,salary_currency:string,salary_scheme_code:string|null}
+     */
+    private function offerCompensationTerms(Offer $offer): array
+    {
+        return [
+            'base_salary_minor' => (int) $offer->base_salary_minor,
+            'salary_currency' => (string) $offer->salary_currency,
+            'salary_scheme_code' => $offer->salary_scheme_code !== null ? (string) $offer->salary_scheme_code : null,
+        ];
     }
 
     /**
@@ -391,6 +406,7 @@ final class RecruitmentService
                 'status' => (string) $offer->status,
                 'base_salary_minor' => (int) $offer->base_salary_minor,
                 'salary_currency' => (string) $offer->salary_currency,
+                'salary_scheme_code' => $offer->salary_scheme_code !== null ? (string) $offer->salary_scheme_code : null,
                 'start_date' => (string) $offer->start_date,
                 'case_id' => $offer->case_id !== null ? (int) $offer->case_id : null,
                 'onboarding_case_id' => $offer->onboarding_case_id !== null ? (int) $offer->onboarding_case_id : null,

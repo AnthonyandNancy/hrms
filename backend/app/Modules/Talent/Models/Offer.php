@@ -13,7 +13,7 @@ final class Offer extends Model
     /** @var list<string> */
     protected $fillable = [
         'candidate_id', 'requisition_id', 'version', 'status', 'base_salary_minor',
-        'salary_currency', 'start_date', 'case_id', 'onboarding_case_id', 'accepted_at',
+        'salary_currency', 'salary_scheme_code', 'start_date', 'case_id', 'onboarding_case_id', 'accepted_at',
         'declined_at', 'superseded_by_id', 'recorded_at',
     ];
 

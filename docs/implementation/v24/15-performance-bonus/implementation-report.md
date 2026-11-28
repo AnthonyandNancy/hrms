@@ -22,3 +22,21 @@
 
 Remaining T15: mapping management API/UI, Offer salary draft and training
 attempt source chain; MCP evidence remains T18.
+
+## T15b — Offer salary to Payroll compensation draft
+
+- Added `offers.salary_scheme_code` and exposed it in offer create/list
+  projections and OpenAPI.
+- Offer acceptance now passes `base_salary_minor`, `salary_currency` and
+  `salary_scheme_code` through the Lifecycle onboarding draft.
+- `TalentOnboardingDraftService` preserves Offer salary terms instead of
+  overwriting them with only location/schedule.
+- Added offer→onboarding→`EmployeeCompensation` regression:
+  - one compensation draft per employment;
+  - exact salary 2,000,000 minor units;
+  - currency/scheme preserved;
+  - DRAFT + ONBOARDING source + approved case id.
+- Verification: focused Offer/Onboarding/Talent/Payroll tests 10 tests /
+  124 assertions; Pint, PHPStan and arch green.
+
+Remaining T15: bonus mapping API/UI and training attempt source chain.

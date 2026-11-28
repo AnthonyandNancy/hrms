@@ -18222,6 +18222,22 @@ paths:
       tags:
         - Talent
       summary: Create an offer approval Case
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [candidate_id, requisition_id, base_salary_minor, salary_currency, start_date]
+              properties:
+                candidate_id: { type: integer, minimum: 1 }
+                requisition_id: { type: integer, minimum: 1 }
+                base_salary_minor: { type: integer, minimum: 0 }
+                salary_currency: { type: string, minLength: 3, maxLength: 3 }
+                salary_scheme_code:
+                  type: [string, "null"]
+                  maxLength: 64
+                start_date: { type: string, format: date }
       responses:
         "201":
           $ref: "#/components/responses/Envelope"

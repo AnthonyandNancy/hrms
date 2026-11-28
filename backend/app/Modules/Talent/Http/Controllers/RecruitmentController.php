@@ -394,6 +394,7 @@ final class RecruitmentController
             'requisition_id' => ['required', 'integer', 'min:1'],
             'base_salary_minor' => ['required', 'integer', 'min:0'],
             'salary_currency' => ['required', 'string', 'size:3'],
+            'salary_scheme_code' => ['nullable', 'string', 'max:64'],
             'start_date' => ['required', new BusinessDateRule],
         ]);
 

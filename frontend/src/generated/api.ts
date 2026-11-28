@@ -17247,7 +17247,19 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    candidate_id: number;
+                    requisition_id: number;
+                    base_salary_minor: number;
+                    salary_currency: string;
+                    salary_scheme_code?: string | null;
+                    /** Format: date */
+                    start_date: string;
+                };
+            };
+        };
         responses: {
             201: components["responses"]["Envelope"];
             401: components["responses"]["Unauthenticated"];

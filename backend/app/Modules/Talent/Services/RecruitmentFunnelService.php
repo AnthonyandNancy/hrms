@@ -223,6 +223,7 @@ final class RecruitmentFunnelService
                 'offer_status' => $offer instanceof Offer ? (string) $offer->status : null,
                 'base_salary_minor' => $offer instanceof Offer ? (int) $offer->base_salary_minor : null,
                 'salary_currency' => $offer instanceof Offer ? (string) $offer->salary_currency : null,
+                'salary_scheme_code' => $offer instanceof Offer && $offer->salary_scheme_code !== null ? (string) $offer->salary_scheme_code : null,
                 'offer_start_date' => $offer instanceof Offer ? (string) $offer->start_date : null,
                 'next_interview_at' => $interview instanceof Interview ? $this->iso($interview->getAttribute('scheduled_at')) : null,
                 'converted_employment_id' => $conversion instanceof CandidateConversion ? (int) $conversion->employment_id : null,
@@ -563,6 +564,11 @@ final class RecruitmentFunnelService
                         'employee_no' => (string) $input['employee_no'],
                         'hire_date' => $hireDate,
                         'business_date' => $hireDate,
+                        'terms' => [
+                            'base_salary_minor' => (int) $offer->base_salary_minor,
+                            'salary_currency' => (string) $offer->salary_currency,
+                            'salary_scheme_code' => $offer->salary_scheme_code !== null ? (string) $offer->salary_scheme_code : null,
+                        ],
                     ]);
                 } catch (ValidationException $exception) {
                     if (($exception->details()['reason'] ?? null) === 'EMPLOYEE_NO_DUPLICATE') {
