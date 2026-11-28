@@ -10,7 +10,7 @@ use App\Modules\Engagement\Contracts\ExternalNotificationChannel;
 use App\Modules\Engagement\Contracts\NoticeApprovalPort;
 use App\Modules\Engagement\Contracts\NoticeWorkspaceDirectory;
 use App\Modules\Engagement\Services\EloquentNoticeWorkspaceDirectory;
-use App\Modules\Engagement\Services\LogExternalNotificationChannel;
+use App\Modules\Engagement\Services\UnavailableExternalNotificationChannel;
 use App\Modules\Engagement\Services\NoticeAccessPolicy;
 use App\Modules\Engagement\Services\NoticeAudienceService;
 use App\Modules\Engagement\Services\NoticeGovernanceService;
@@ -26,7 +26,7 @@ final class EngagementServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->bindIf(ExternalNotificationChannel::class, LogExternalNotificationChannel::class);
+        $this->app->bindIf(ExternalNotificationChannel::class, UnavailableExternalNotificationChannel::class);
         $this->app->bind(PayslipPublicationNotifier::class, PayslipPublicationNotifierAdapter::class);
         $this->app->bind(NoticeWorkspaceDirectory::class, EloquentNoticeWorkspaceDirectory::class);
 

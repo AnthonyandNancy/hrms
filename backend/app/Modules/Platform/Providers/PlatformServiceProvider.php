@@ -27,7 +27,7 @@ use App\Modules\Platform\Services\EloquentInstallationStateStore;
 use App\Modules\Platform\Services\EloquentNotificationDeliveryLedger;
 use App\Modules\Platform\Services\FileMetadataAdapter;
 use App\Modules\Platform\Services\LocalPrivateFileStore;
-use App\Modules\Platform\Services\LogNotificationTransport;
+use App\Modules\Platform\Services\UnavailableNotificationTransport;
 use App\Modules\Platform\Services\LogOutboxDispatcher;
 use App\Modules\Platform\Services\MenuOverrideService;
 use App\Modules\Platform\Services\OutboxRecorderAdapter;
@@ -53,7 +53,7 @@ final class PlatformServiceProvider extends ServiceProvider
         $this->app->bind(MenuOverrideReader::class, MenuOverrideService::class);
         $this->app->bind(MenuOverrideWriter::class, MenuOverrideService::class);
         $this->app->bind(NotificationDeliveryLedger::class, EloquentNotificationDeliveryLedger::class);
-        $this->app->bind(NotificationTransport::class, LogNotificationTransport::class);
+        $this->app->bind(NotificationTransport::class, UnavailableNotificationTransport::class);
 
         $this->app->singleton(MigrationTargetRegistry::class, function (): MigrationTargetRegistry {
             $registry = new MigrationTargetRegistry;

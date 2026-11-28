@@ -10,6 +10,9 @@ namespace App\Shared\Notifications;
  */
 final readonly class NotificationDeliveryRecord
 {
+    /**
+     * @param  array<string, mixed>  $payload
+     */
     public function __construct(
         public int $id,
         public int $notificationId,
@@ -20,6 +23,9 @@ final readonly class NotificationDeliveryRecord
         public ?string $providerMessageId,
         public ?string $lastError,
         public ?string $sentAt,
+        public ?string $notificationType = null,
+        public array $payload = [],
+        public ?string $claimedAt = null,
     ) {}
 
     /**
@@ -32,11 +38,13 @@ final readonly class NotificationDeliveryRecord
             'notification_id' => $this->notificationId,
             'recipient_user_id' => $this->recipientUserId,
             'channel' => $this->channel,
+            'notification_type' => $this->notificationType,
             'status' => $this->status->value,
             'attempts' => $this->attempts,
             'provider_message_id' => $this->providerMessageId,
             'last_error' => $this->lastError,
             'sent_at' => $this->sentAt,
+            'claimed_at' => $this->claimedAt,
         ];
     }
 }

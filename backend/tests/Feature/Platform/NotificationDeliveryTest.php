@@ -121,6 +121,28 @@ final class NotificationDeliveryTest extends PeopleTestCase
             ->assertJsonPath('data.provider_message_id', 'provider-receipt-retry');
     }
 
+    public function test_default_transport_without_a_provider_keeps_delivery_failed(): void
+    {
+        $this->postJson('/v1/notification-templates', [
+            'code' => 'APPROVAL_PENDING',
+            'channel' => 'IN_APP',
+            'subject' => 'Approval pending',
+            'body' => 'You have a pending approval.',
+        ], ['Idempotency-Key' => 'nt-default-provider'])->assertCreated();
+
+        $deliveryId = (int) $this->postJson('/v1/notifications/dispatch', [
+            'event_key' => 'case-default-provider',
+            'template_code' => 'APPROVAL_PENDING',
+            'recipient_user_id' => 1,
+        ], ['Idempotency-Key' => 'nd-default-provider'])->assertCreated()
+            ->assertJsonPath('data.status', 'FAILED')
+            ->assertJsonPath('data.last_error', 'NO_PROVIDER_CONFIGURED')
+            ->assertJsonPath('data.sent_at', null)
+            ->json('data.delivery_id');
+
+        $this->assertNull(NotificationDelivery::query()->whereKey($deliveryId)->value('provider_message_id'));
+    }
+
     public function test_delivery_log_is_a_projection_and_failed_delivery_can_be_retried_once(): void
     {
         $this->postJson('/v1/notification-templates', [
@@ -129,6 +151,8 @@ final class NotificationDeliveryTest extends PeopleTestCase
             'subject' => 'Approval pending',
             'body' => 'You have a pending approval.',
         ], ['Idempotency-Key' => 'nt-retry'])->assertCreated();
+
+        $this->app->instance(NotificationTransport::class, new ReceiptDrivenNotificationTransport);
 
         $deliveryId = (int) $this->postJson('/v1/notifications/dispatch', [
             'event_key' => 'case-4-created',
@@ -190,6 +214,7 @@ final class ReceiptDrivenNotificationTransport implements NotificationTransport
 
     public function send(string $templateCode, int $recipientUserId, array $variables): NotificationReceipt
     {
-        return array_shift($this->receipts) ?? NotificationReceipt::failed('NO_STUBBED_RECEIPT');
+        return array_shift($this->receipts)
+            ?? NotificationReceipt::delivered('stub-provider-'.bin2hex(random_bytes(4)));
     }
 }
