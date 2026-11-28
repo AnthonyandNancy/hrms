@@ -17,6 +17,7 @@ use App\Shared\Commands\CommandRunner;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Projections\ProjectionResponder;
+use App\Shared\Projections\ProjectionResult;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -77,6 +78,20 @@ final class OvertimeRequestController
             to: $to,
             page: $page,
             pageSize: $pageSize,
+        );
+
+        $items = array_map(fn (array $item): array => $this->withAllowedActions($item), $result->items);
+        $result = new ProjectionResult(
+            items: $items,
+            page: $result->page,
+            pageSize: $result->pageSize,
+            total: $result->total,
+            asOf: $result->asOf,
+            freshness: $result->freshness,
+            sourceHash: $result->sourceHash,
+            partial: $result->partial,
+            partialReason: $result->partialReason,
+            drilldown: $result->drilldown,
         );
 
         return $this->projections->ok($result, [
@@ -271,6 +286,27 @@ final class OvertimeRequestController
             'available_minutes' => $available,
             'settlement_count' => count($result->items),
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     * @return array<string, mixed>
+     */
+    private function withAllowedActions(array $item): array
+    {
+        $item['allowed_actions'] = $this->allowedActions->for(
+            $this->principals->resolve(),
+            'overtime_request',
+            (int) ($item['id'] ?? 0),
+            [
+                'status' => (string) ($item['status'] ?? ''),
+                'subject_employment_id' => (int) ($item['employment_id'] ?? 0),
+                'case_id' => isset($item['case_id']) ? (int) $item['case_id'] : null,
+            ],
+            (string) ($item['business_date'] ?? $this->scope->today()->value()),
+        );
+
+        return $item;
     }
 
     /**

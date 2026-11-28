@@ -47,3 +47,17 @@ API allowed_actions wiring.
   affected tests to approve through Workflow before confirmation.
 - Verification: Time suite 239 tests / 1,132 assertions; targeted workflow,
   settlement, contract/parity tests green; Pint/PHPStan/arch green.
+
+## T08c — overtime approval UI and list allowed_actions
+
+- `/v1/time/overtime/requests` now injects per-row server `allowed_actions`,
+  preserving projection evidence while allowing the list to render actions.
+- Overtime object-action catalog exposes `overtime.request.approve` only for
+  SUBMITTED/IN_REVIEW; CONFIRM is now allowed only for APPROVED.
+- OvertimeTravel workspace:
+  - request rows expose 审批加班 only when the server row says so;
+  - manager can approve/reject with an optional comment and stable idempotency
+    key;
+  - confirmation buttons consume `overtime.request.confirm` from the server
+    allowed_actions rather than capability/status inference.
+- Added frontend regression for approval payload/key and read-only action hiding.
