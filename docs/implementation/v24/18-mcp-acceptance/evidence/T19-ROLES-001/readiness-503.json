@@ -1,0 +1,1 @@
+{"code":"SERVICE_UNAVAILABLE","message":"The service is temporarily unavailable.","data":{"status":"not_ready","version":"1.0.0","checks":{"db":true,"cache":true,"storage":true,"migrations":true,"installation":true,"administrator":false},"time":"2026-11-28T12:05:38Z"},"request_id":"01M8H0QXCEZYSD1W6CGJMJNG65"}

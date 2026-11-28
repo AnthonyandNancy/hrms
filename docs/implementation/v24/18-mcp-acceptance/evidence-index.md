@@ -320,3 +320,17 @@ NOT RUN: remaining role matrix modules, 155 entries, 458 cards
 ```
 
 - Evidence: `evidence/T19-MCP-007/`.
+
+
+## 19. Execution update — T19-ROLES-001
+
+```text
+MCP executed: 11 evidence packs total
+PASS: synthetic role accounts created/linked; R02/R06/R07/R08 login and selected pages
+ENVIRONMENT: ready=503 due synthetic second administrator (expected for T18 seed)
+NOT RUN: full R01–R09 module/action matrix, 155 entries, 458 cards
+```
+
+- Evidence: `evidence/T19-ROLES-001/`.
+- GAP-24: R09 audit readiness is blocked by the synthetic second privileged
+  administrator; final T19 clean baseline must be re-run without demo admin.

@@ -1,0 +1,6 @@
+TOTP for demo.admin: otpauth://<redacted>
+TOTP for demo.hr: otpauth://<redacted>
+TOTP for demo.manager: otpauth://<redacted>
+TOTP for demo.employee: otpauth://<redacted>
+TOTP for demo.payroll: otpauth://<redacted>
+Demo users are idempotent and contain synthetic data only.

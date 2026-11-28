@@ -1,0 +1,10 @@
+mysql: [Warning] Using a password on the command line interface can be insecure.
+id	username	is_privileged	auth_version	roles	employments
+1	installer	1	2	SYSTEM_ADMIN	NULL
+2	t19.payroll	0	7	AUDITOR,PAYROLL_SPECIALIST_T19,TRAINING_ADMIN	NULL
+3	t18.recruiter	0	3	RECRUITER	NULL
+4	demo.admin	1	1	EMPLOYEE,SYSTEM_ADMIN	NULL
+5	demo.hr	0	1	EMPLOYEE,HR_ADMIN	NULL
+6	demo.manager	0	1	EMPLOYEE,LINE_MANAGER	NULL
+7	demo.employee	0	1	EMPLOYEE	NULL
+8	demo.payroll	0	1	EMPLOYEE,PAYROLL_SPECIALIST	NULL
