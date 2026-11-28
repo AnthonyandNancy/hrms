@@ -279,3 +279,13 @@ NOT RUN: dynamic details, role matrix, 155 entries, 458 cards
 ```
 
 - Evidence: `evidence/T19-CRAWL-002/`.
+
+## 15. Execution update — T19-CRAWL-003
+
+```text
+MCP executed: 7 evidence packs total
+PASS: 6 dynamic detail pages + employee 8-tab navigation; zero non-2xx/console errors
+NOT RUN: role matrix, 155 historical entries, 458 cards, every destructive interaction
+```
+
+- Evidence: `evidence/T19-CRAWL-003/`.

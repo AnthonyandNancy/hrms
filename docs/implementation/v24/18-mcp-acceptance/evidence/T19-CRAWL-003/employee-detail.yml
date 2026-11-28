@@ -1,0 +1,107 @@
+- generic [ref=f105e3]:
+  - link "跳到主要内容" [ref=f105e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - complementary "主导航" [ref=f105e5]:
+    - generic [ref=f105e6]:
+      - generic [aria-hidden] [ref=f105e7]: 澄
+      - generic [ref=f105e8]:
+        - generic [ref=f105e9]: 澄明 HR
+        - generic [ref=f105e10]: Acme China Synthetic
+      - button "收起侧边栏" [expanded] [ref=f105e11] [cursor=pointer]
+    - navigation "V1.1 功能菜单" [ref=f105e15]:
+      - link "我的工作台" [ref=f105e17] [cursor=pointer]:
+        - /url: /workspace
+      - button "仪表盘" [ref=f105e23] [cursor=pointer]
+      - button "报表中心" [ref=f105e32] [cursor=pointer]
+      - button "员工档案" [ref=f105e41] [cursor=pointer]
+      - button "组织与岗位" [ref=f105e50] [cursor=pointer]
+      - button "员工异动" [ref=f105e59] [cursor=pointer]
+      - button "劳动合同" [ref=f105e68] [cursor=pointer]
+      - button "考勤打卡" [ref=f105e77] [cursor=pointer]
+      - button "请假管理" [ref=f105e88] [cursor=pointer]
+      - button "加班管理" [ref=f105e97] [cursor=pointer]
+      - button "出差管理" [ref=f105e108] [cursor=pointer]
+      - button "薪资管理" [ref=f105e117] [cursor=pointer]
+      - button "绩效考核" [ref=f105e128] [cursor=pointer]
+      - button "系统管理" [ref=f105e137] [cursor=pointer]
+      - button "招聘需求" [ref=f105e147] [cursor=pointer]
+      - button "候选人" [ref=f105e156] [cursor=pointer]
+      - button "培训管理" [ref=f105e165] [cursor=pointer]
+      - button "公告通知" [ref=f105e175] [cursor=pointer]
+  - generic [ref=f105e185]:
+    - banner [ref=f105e186]:
+      - generic [ref=f105e187]:
+        - paragraph [ref=f105e188]: 澄明科技 · 人力资源
+        - generic [ref=f105e189]: employee-detail
+      - link "查看未读公告" [ref=f105e190] [cursor=pointer]:
+        - /url: /notices
+      - button "打开账户菜单" [ref=f105e198] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f105e199]: IN
+        - generic [ref=f105e200]: installer
+    - main [ref=f105e205]:
+      - generic [ref=f105e206]:
+        - generic [ref=f105e207]:
+          - generic [ref=f105e208]:
+            - heading "Demo Manager · DEMO-0001" [level=1] [ref=f105e209]
+            - paragraph [ref=f105e210]: 同一员工对象、同一任务范围的员工详情工作区；不混入薪资、考勤或绩效页签。
+          - button "返回员工列表" [ref=f105e212] [cursor=pointer]
+        - generic [ref=f105e213]:
+          - generic [ref=f105e214]:
+            - generic [ref=f105e215]:
+              - generic [ref=f105e216]:
+                - paragraph [ref=f105e217]: 员工档案 · 同一员工对象
+                - heading "Demo Manager" [level=2] [ref=f105e218]
+                - paragraph [ref=f105e219]: 本页所有页签都只属于这位员工，不混入薪资、考勤或绩效模块。
+              - generic [ref=f105e220]:
+                - button "编辑" [ref=f105e221] [cursor=pointer]
+                - button "归档" [ref=f105e222] [cursor=pointer]
+            - generic [ref=f105e223]:
+              - generic [ref=f105e224]:
+                - term [ref=f105e225]: 姓名
+                - definition [ref=f105e226]: Demo Manager
+              - generic [ref=f105e227]:
+                - term [ref=f105e228]: 员工编号
+                - definition [ref=f105e229]: DEMO-0001
+              - generic [ref=f105e230]:
+                - term [ref=f105e231]: 部门
+                - definition [ref=f105e232]: Demo Platform
+              - generic [ref=f105e233]:
+                - term [ref=f105e234]: 岗位
+                - definition [ref=f105e235]: 无权查看
+              - generic [ref=f105e236]:
+                - term [ref=f105e237]: 状态
+                - definition [ref=f105e238]: 在职
+              - generic [ref=f105e239]:
+                - term [ref=f105e240]: 入职日期
+                - definition [ref=f105e241]: 2026年1月1日
+              - generic [ref=f105e242]:
+                - term [ref=f105e243]: 用工类型
+                - definition [ref=f105e244]: 全职
+              - generic [ref=f105e245]:
+                - term [ref=f105e246]: 工作地点
+                - definition [ref=f105e247]: Shanghai
+              - generic [ref=f105e248]:
+                - term [ref=f105e249]: 工作安排
+                - definition [ref=f105e250]: STANDARD
+              - generic [ref=f105e251]:
+                - term [ref=f105e252]: 联系邮箱
+                - definition [ref=f105e253]: demo-manager@example.test
+          - generic [ref=f105e254]:
+            - tablist "员工详情页签" [ref=f105e255]:
+              - tab "基本信息" [selected] [ref=f105e256] [cursor=pointer]
+              - tab "任职与异动" [ref=f105e257] [cursor=pointer]
+              - tab "合同" [ref=f105e258] [cursor=pointer]
+              - tab "证照与附件" [ref=f105e259] [cursor=pointer]
+              - tab "教育经历" [ref=f105e260] [cursor=pointer]
+              - tab "工作经历" [ref=f105e261] [cursor=pointer]
+              - tab "联系方式" [ref=f105e262] [cursor=pointer]
+              - tab "变更申请" [ref=f105e263] [cursor=pointer]
+            - tabpanel [ref=f105e264]:
+              - generic [ref=f105e265]:
+                - heading "基本信息" [level=3] [ref=f105e266]
+                - paragraph [ref=f105e267]: 姓名、员工编号、部门、岗位、状态与入职日期已在上方摘要展示。
+              - generic [ref=f105e268]: 本页签只呈现服务端已返回的字段。缺失或被字段策略隐藏的属性显示“无权查看”， 不根据姓名、编号或组织标识推断任何值。合同、证照、经历、联系人与变更申请分别在各自页签按需加载。
+    - contentinfo [ref=f105e269]:
+      - generic [ref=f105e270]: 澄明科技 HRMS
+      - generic [ref=f105e271]: 审计与导出操作会记录操作者、目的与时间
+      - generic [ref=f105e272]: 构建 13fdf54

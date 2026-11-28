@@ -1,0 +1,5 @@
+1	ACME-CN-HQ	Acme China Synthetic Headquarters	COMPANY
+2	ORG-HQ	Demo Headquarters	COMPANY
+3	ORG-ENG	Demo Engineering	DEPARTMENT
+4	ORG-PLATFORM	Demo Platform	DEPARTMENT
+5	ORG-SALES	Demo Sales	DEPARTMENT
