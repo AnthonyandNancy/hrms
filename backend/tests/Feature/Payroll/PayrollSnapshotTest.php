@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Payroll;
 
 use App\Modules\Payroll\Enums\PayrollRunStatus;
+use App\Modules\Payroll\Models\EmployeeCompensation;
 use App\Modules\Payroll\Models\PayrollInputSnapshot;
 use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Services\ApprovalService;
@@ -36,6 +37,45 @@ final class PayrollSnapshotTest extends PayrollTestCase
         $this->assertSame($snapshot->payload_json, $snapshotAfter->payload_json);
         $this->assertSame($snapshot->source_hash, $snapshotAfter->source_hash);
         $this->assertSame(1, PayrollInputSnapshot::query()->where('run_id', $run->id)->count());
+    }
+
+    public function test_snapshot_prefers_active_execution_compensation_over_employment_terms(): void
+    {
+        $base = $this->seedPayrollBase(1_000_000);
+        $employmentId = (int) $base['employment_id'];
+        $scheme = $base['scheme'];
+
+        $compensation = EmployeeCompensation::query()->create([
+            'employment_id' => $employmentId,
+            'contract_version_id' => null,
+            'effective_from' => '2026-01-01',
+            'effective_to' => null,
+            'status' => 'ACTIVE',
+            'currency' => 'CNY',
+            'base_salary_cents' => 800_000,
+            'salary_scheme_code' => (string) $scheme->code,
+            'payroll_scheme_id' => (int) $scheme->id,
+            'payroll_scheme_version' => (int) $scheme->version,
+            'parameter_overrides_json' => ['meal_per_day_cents' => 2500],
+            'approved_case_id' => null,
+            'source_type' => 'TEST',
+            'source_id' => 1,
+            'content_hash' => hash('sha256', 'snapshot-compensation'),
+            'supersedes_id' => null,
+            'created_by' => 10,
+            'created_at' => $this->clock->now(),
+        ]);
+
+        $runs = app(PayrollRunService::class);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $scheme->id, 'period' => '2026-07']);
+        $run = $runs->lockInputs((int) $run->id, 10);
+        $payload = (array) PayrollInputSnapshot::query()->where('run_id', $run->id)->firstOrFail()->payload_json;
+
+        $this->assertSame(2, (int) $payload['schema_version']);
+        $this->assertSame((int) $compensation->id, (int) $payload['compensation']['compensation_id']);
+        $this->assertSame(800_000, (int) $payload['compensation']['base_salary_cents']);
+        $this->assertSame((int) $scheme->id, (int) $payload['scheme']['scheme_id']);
+        $this->assertSame(2500, (int) $payload['compensation']['parameter_overrides']['meal_per_day_cents']);
     }
 
     public function test_attendance_change_after_lock_does_not_affect_calculated_run(): void
