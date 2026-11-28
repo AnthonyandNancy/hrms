@@ -37,7 +37,7 @@ It is **not** a completed V2.4 business delivery:
 | T12 mid-month compensation | COMPLETE | `docs/implementation/v24/12-midmonth/implementation-report.md`; gates `gate-all-t12a.log`, `gate-all-t12b.log` | MCP end-to-end evidence remains T18 |
 | T13 signed YTD/corrections | PARTIAL | `docs/implementation/v24/13-corrections/implementation-report.md`; gates `gate-all-t13ab.log`, `gate-all-t13c.log` | Signed ledger/chain + exact AC-12 complete; unpaid void/retry/action UI remain |
 | T14 benefits→Payroll | PARTIAL | `docs/implementation/v24/14-benefits/implementation-report.md`; gates `gate-all-t14.log`, `gate-all-t14-ui.log` | Multi-plan/reversal/employer cost/frozen snapshot/UI reversal pass; field-profile masking remains |
-| T15a-T15c performance/Offer/training | PARTIAL | `docs/implementation/v24/15-performance-bonus/implementation-report.md`; gates `gate-all-t15a.log`, `gate-all-t15b.log`, `gate-all-t15c.log` | Bonus mapping API + training attempt source complete; mapping/attempt UI remains |
+| T15a-T15d performance/Offer/training | PARTIAL | `docs/implementation/v24/15-performance-bonus/implementation-report.md`; gates `gate-all-t15a.log`, `gate-all-t15b.log`, `gate-all-t15c.log`, `gate-all-t15d.log` | Bonus mapping API + attempt HTTP/source complete; mapping/attempt UI remains |
 | T11 payroll runs/membership | COMPLETE | `docs/implementation/v24/11-payroll-runs/implementation-report.md`; gates `gate-all-t11a.log`, `gate-all-t11b1.log`, `gate-all-t11b2.log` | Member form visual polish remains T17 |
 | T18 MCP acceptance assets | IN PROGRESS | `docs/implementation/v24/18-mcp-acceptance/` | Assets only; no MCP execution |
 
