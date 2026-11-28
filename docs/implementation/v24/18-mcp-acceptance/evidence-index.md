@@ -378,3 +378,14 @@ NOT RUN: full role/action matrix, 155 entries, 458 cards
 ```
 
 - Evidence: `evidence/T19-MCP-012/`.
+
+## 24. Execution update — T19-CRAWL-004
+
+```text
+MCP executed: 16 evidence packs total
+PASS: 155/155 historical URL dispositions (35 KEEP, 120 FOLD)
+PASS: 155/155 document responses 200, zero console errors
+NOT RUN: 155 functional ledger rows and 458 cards still require per-row/action acceptance
+```
+
+- Evidence: `evidence/T19-CRAWL-004/`.

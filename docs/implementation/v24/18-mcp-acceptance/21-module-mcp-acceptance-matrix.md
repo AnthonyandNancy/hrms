@@ -674,6 +674,8 @@ FOLD：120；KEEP：35（与 V2.3 处置矩阵一致）
 ## 4B. 21 模块可判定预期结果
 
 > 本表把每个模块从“通用操作清单”收紧为可判定的业务结果。每条都由该模块 155 行台账中的具体入口/卡片推导；不要求自动测试通过，也不预先判定 PASS。执行时必须按 `mcp-runbook.md` 记录实际值，并按 evidence 模板逐项比对。
+>
+> **2026-11-28 execution update:** T19-CRAWL-004 executed all 155 historical URL dispositions (35 KEEP / 120 FOLD, 155 path matches, 0 console errors). The per-entry functional conclusions and 458 cards remain NOT RUN.
 
 | 模块 | 最低可判定预期（全部必须实际观察） | 失败/阻断判定 |
 |---|---|---|
