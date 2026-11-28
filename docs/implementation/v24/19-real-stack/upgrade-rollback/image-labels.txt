@@ -1,0 +1,3 @@
+[factoryhr/php-app:v24-t19c] {"com.docker.compose.project":"factoryhr-t19","com.docker.compose.service":"php-app","com.docker.compose.version":"5.6.1"}
+[factoryhr/php-app:v24-t19d] {"com.docker.compose.project":"factoryhr-t19","com.docker.compose.service":"php-app","com.docker.compose.version":"5.6.1"}
+[factoryhr/frontend:v24-t19b] {"com.docker.compose.project":"factoryhr-t19","com.docker.compose.service":"nginx","com.docker.compose.version":"5.6.1","maintainer":"NGINX Docker Maintainers <docker-maint@nginx.com>"}
