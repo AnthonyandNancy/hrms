@@ -202,14 +202,14 @@ Route::prefix('employees')->middleware('auth.session')->group(function (): void 
         ->middleware(['csrf.header', 'mfa.step-up', 'capability:people.employee.manage,COMPANY', 'capability:lifecycle.onboarding.manage,COMPANY'])
         ->name('employees.onboard');
     Route::get('/', [EmployeeController::class, 'index'])
-        ->middleware('capability:people.employee.read,COMPANY')
+        ->middleware('capability:people.employee.read')
         ->name('employees.index');
     Route::get('/export', [EmployeeController::class, 'export'])
         ->middleware('capability:people.employee.export,COMPANY')
         ->name('employees.export');
     Route::get('/{employment_id}', [EmployeeController::class, 'show'])
         ->whereNumber('employment_id')
-        ->middleware('capability:people.employee.read,COMPANY')
+        ->middleware('capability:people.employee.read')
         ->name('employees.show');
     Route::delete('/{employment_id}', [EmployeeController::class, 'archive'])
         ->whereNumber('employment_id')

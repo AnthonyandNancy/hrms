@@ -279,6 +279,16 @@ describe('EmployeeListPage', () => {
     expect(wrapper.text()).toContain('E1007')
   })
 
+  it('does not request department or position lookups without their capabilities', async () => {
+    const { wrapper } = await mountPage(['people.employee.read'])
+    await flushPromises()
+
+    expect(wrapper.exists()).toBe(true)
+    expect(api.listEmployees).toHaveBeenCalled()
+    expect(api.listOrgUnits).not.toHaveBeenCalled()
+    expect(api.listPositions).not.toHaveBeenCalled()
+  })
+
   it('shows archive and restore only for their own capabilities', async () => {
     api.listEmployees.mockResolvedValue(
       list([
@@ -314,7 +324,7 @@ describe('EmployeeListPage', () => {
   it('submits onboarding as a pending case, closes the drawer and shows the case link', async () => {
     api.listOrgUnits.mockResolvedValue([{ id: 10, name: '研发部', code: 'DEV' }])
     api.listEmployees.mockResolvedValue(list([employee()]))
-    const { wrapper } = await mountPage(['people.employee.read', 'people.employee.manage', 'lifecycle.onboarding.manage', 'lifecycle.case.read'])
+    const { wrapper } = await mountPage(['people.employee.read', 'people.employee.manage', 'lifecycle.onboarding.manage', 'lifecycle.case.read', 'org.unit.read', 'org.position.read'])
     await flushPromises()
 
     await wrapper.get('[data-testid="employee-create"]').trigger('click')

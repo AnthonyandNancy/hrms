@@ -1,0 +1,125 @@
+- generic [ref=f20e3]:
+  - link "跳到主要内容" [ref=f20e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - complementary "主导航" [ref=f20e5]:
+    - generic [ref=f20e6]:
+      - generic [aria-hidden] [ref=f20e7]: 澄
+      - generic [ref=f20e8]:
+        - generic [ref=f20e9]: 澄明 HR
+        - generic [ref=f20e10]: Acme China Synthetic
+      - button "收起侧边栏" [expanded] [ref=f20e11] [cursor=pointer]
+    - navigation "V1.1 功能菜单" [ref=f20e15]:
+      - link "我的工作台" [ref=f20e17] [cursor=pointer]:
+        - /url: /workspace
+      - button "仪表盘" [ref=f20e23] [cursor=pointer]
+      - generic [ref=f20e31]:
+        - button "员工档案" [expanded] [ref=f20e32] [cursor=pointer]
+        - link "员工列表" [ref=f20e41] [cursor=pointer]:
+          - /url: /hr/employees
+      - button "劳动合同" [ref=f20e47] [cursor=pointer]
+      - button "考勤打卡" [ref=f20e56] [cursor=pointer]
+      - button "请假管理" [ref=f20e67] [cursor=pointer]
+      - button "加班管理" [ref=f20e76] [cursor=pointer]
+      - button "出差管理" [ref=f20e87] [cursor=pointer]
+      - button "绩效考核" [ref=f20e96] [cursor=pointer]
+      - button "系统管理" [ref=f20e105] [cursor=pointer]
+      - button "培训管理" [ref=f20e115] [cursor=pointer]
+      - button "公告通知" [ref=f20e125] [cursor=pointer]
+  - generic [ref=f20e135]:
+    - banner [ref=f20e136]:
+      - generic [ref=f20e137]:
+        - paragraph [ref=f20e138]: 澄明科技 · 人力资源
+        - generic [ref=f20e139]: 员工列表
+      - link "查看未读公告" [ref=f20e140] [cursor=pointer]:
+        - /url: /notices
+      - button "打开账户菜单" [ref=f20e148] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f20e149]: DE
+        - generic [ref=f20e150]: demo.manager
+    - main [ref=f20e155]:
+      - generic [ref=f20e156]:
+        - generic [ref=f20e157]:
+          - generic [ref=f20e158]:
+            - heading "员工列表" [level=1] [ref=f20e159]
+            - paragraph [ref=f20e160]: 按业务日期、部门与关键词查询员工主数据；归档记录可显式纳入。
+          - button "刷新" [ref=f20e162] [cursor=pointer]
+        - generic [ref=f20e164]:
+          - region "员工筛选" [ref=f20e165]:
+            - generic [ref=f20e166]:
+              - generic [ref=f20e167]: 搜索
+              - searchbox "搜索员工" [ref=f20e168]
+            - generic [ref=f20e169]:
+              - generic [ref=f20e170]: 业务日期
+              - textbox "业务日期" [ref=f20e171]: 2026-11-28
+            - generic [ref=f20e172]:
+              - generic [ref=f20e173]: 部门
+              - combobox "按部门筛选" [ref=f20e174]:
+                - option "全部部门" [selected]
+            - generic [ref=f20e175]:
+              - checkbox "包含已归档" [ref=f20e176]
+              - generic [ref=f20e177]: 包含已归档
+            - button "重置筛选" [ref=f20e178] [cursor=pointer]
+          - generic [ref=f20e179]:
+            - region "员工列表，可横向滚动" [ref=f20e180]:
+              - table "员工列表，共 3 条，第 1 页，共 1 页" [ref=f20e181]:
+                - caption [ref=f20e182]: 员工列表，共 3 条，第 1 页，共 1 页
+                - rowgroup [ref=f20e183]:
+                  - row [ref=f20e184]:
+                    - columnheader "员工编号" [ref=f20e185]
+                    - columnheader "姓名" [ref=f20e186]
+                    - columnheader "部门" [ref=f20e187]
+                    - columnheader "岗位" [ref=f20e188]
+                    - columnheader "状态" [ref=f20e189]
+                    - columnheader "入职日期" [ref=f20e190]
+                    - columnheader "操作" [ref=f20e191]
+                - rowgroup [ref=f20e192]:
+                  - row [ref=f20e193] [cursor=pointer]:
+                    - cell "DEMO-0001" [ref=f20e194]
+                    - cell "Demo Manager" [ref=f20e195]
+                    - cell "Demo Platform" [ref=f20e196]
+                    - cell "—" [ref=f20e197]
+                    - cell "在职 全职" [ref=f20e198]:
+                      - generic [ref=f20e199]: 在职
+                      - text: 全职
+                    - cell "2026年1月1日" [ref=f20e200]
+                    - cell [ref=f20e201]:
+                      - link "查看" [ref=f20e203]:
+                        - /url: /hr/employees/1
+                  - row [ref=f20e204] [cursor=pointer]:
+                    - cell "DEMO-0002" [ref=f20e205]
+                    - cell "Demo Employee" [ref=f20e206]
+                    - cell "Demo Platform" [ref=f20e207]
+                    - cell "—" [ref=f20e208]
+                    - cell "在职 全职" [ref=f20e209]:
+                      - generic [ref=f20e210]: 在职
+                      - text: 全职
+                    - cell "2026年1月1日" [ref=f20e211]
+                    - cell [ref=f20e212]:
+                      - link "查看" [ref=f20e214]:
+                        - /url: /hr/employees/2
+                  - row [ref=f20e215] [cursor=pointer]:
+                    - cell "DEMO-0003" [ref=f20e216]
+                    - cell "Demo Secondment" [ref=f20e217]
+                    - cell "Demo Platform" [ref=f20e218]
+                    - cell "—" [ref=f20e219]
+                    - cell "在职 全职" [ref=f20e220]:
+                      - generic [ref=f20e221]: 在职
+                      - text: 全职
+                    - cell "2026年1月1日" [ref=f20e222]
+                    - cell [ref=f20e223]:
+                      - link "查看" [ref=f20e225]:
+                        - /url: /hr/employees/3
+            - generic [ref=f20e226]:
+              - generic [ref=f20e227]: 共 3 条记录 （已归档记录默认不显示，可勾选“包含已归档”查看）
+              - generic [ref=f20e228]:
+                - generic [ref=f20e231] [cursor=pointer]:
+                  - generic:
+                    - combobox [ref=f20e233]
+                    - generic [ref=f20e234]: 20条/页
+                - button "上一页" [disabled] [ref=f20e239]
+                - list [ref=f20e240]:
+                  - listitem "第 1 页" [ref=f20e241]: "1"
+                - button "下一页" [disabled] [ref=f20e242]
+    - contentinfo [ref=f20e243]:
+      - generic [ref=f20e244]: 澄明科技 HRMS
+      - generic [ref=f20e245]: 审计与导出操作会记录操作者、目的与时间
+      - generic [ref=f20e246]: 构建 04b874e0

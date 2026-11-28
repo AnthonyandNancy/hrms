@@ -95,6 +95,8 @@ const canReadLifecycleCase = computed(() => session.can('lifecycle.case.read'))
 const canExport = computed(() => session.can('people.employee.export'))
 const canArchive = computed(() => session.can('people.employee.archive'))
 const canRestore = computed(() => session.can('people.employee.restore'))
+const canReadOrgUnits = computed(() => session.can('org.unit.read'))
+const canReadPositions = computed(() => session.can('org.position.read'))
 
 async function load(): Promise<void> {
   const sequence = ++requestSequence
@@ -129,8 +131,8 @@ async function load(): Promise<void> {
 
 async function loadLookups(): Promise<void> {
   const [unitResult, positionResult] = await Promise.allSettled([
-    listOrgUnits(asOf.value),
-    listPositions(asOf.value),
+    canReadOrgUnits.value ? listOrgUnits(asOf.value) : Promise.resolve([]),
+    canReadPositions.value ? listPositions(asOf.value) : Promise.resolve([]),
   ])
   orgUnits.value = unitResult.status === 'fulfilled' ? unitResult.value : []
   positions.value = positionResult.status === 'fulfilled' ? positionResult.value : []

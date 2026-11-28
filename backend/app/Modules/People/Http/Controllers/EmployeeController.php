@@ -47,6 +47,7 @@ final class EmployeeController
             'include_archived' => ['nullable', 'boolean'],
         ]);
         $asOf = $this->businessDates->resolve($data['as_of'] ?? null);
+        $this->assertDirectoryRead($principal, $asOf->value());
 
         $result = $query->paginate(
             $principal,
@@ -139,6 +140,7 @@ final class EmployeeController
         $principal = $this->principals->resolve();
         $data = $request->validate(['as_of' => ['nullable', new BusinessDateRule]]);
         $asOf = $this->businessDates->resolve($data['as_of'] ?? null);
+        $this->assertDirectoryRead($principal, $asOf->value());
         $this->assertPermits($principal, 'people.employee.read', $asOf->value());
 
         $asOfValue = $asOf->value();
@@ -288,6 +290,14 @@ final class EmployeeController
 
         if (! $allowed) {
             throw new NotFoundOrForbiddenException;
+        }
+    }
+
+    private function assertDirectoryRead(Principal $principal, string $businessDate): void
+    {
+        if (! $this->authorizer->allows($principal, 'people.employee.read', AnchorRef::company(), $businessDate)
+            && ! $this->authorizer->allows($principal, 'people.employee.read', AnchorRef::managed(), $businessDate)) {
+            throw new AuthorizationException('Forbidden.');
         }
     }
 

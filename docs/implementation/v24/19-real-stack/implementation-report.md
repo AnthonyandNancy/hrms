@@ -167,3 +167,12 @@ deployment-traffic restore drill, TLS/secret-manager cutover and final GO.
 - Deployed and synced capabilities; R08 recruiter real-session checks:
   requisitions 200, candidates 200, org-tree 200; shell no longer requests
   notices. GAP-22 marked FIXED.
+
+
+## v24-t19i manager employee directory
+
+- Employee directory routes now accept COMPANY or MANAGED and are constrained by
+  the controller; SELF-only users remain denied.
+- EmployeeListPage gates department/position lookups by their capabilities.
+- Real `demo.manager` receives 3 scoped rows and zero post-login non-2xx; the
+  employee page has no department/position selector errors.

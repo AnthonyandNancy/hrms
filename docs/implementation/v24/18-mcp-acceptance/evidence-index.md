@@ -310,3 +310,13 @@ NOT RUN: full R01–R09 matrix, 155 entries, 458 cards
 ```
 
 - Evidence: `evidence/T19-MCP-006/`.
+
+## 18. Execution update — T19-MCP-007
+
+```text
+MCP executed: 10 evidence packs total
+PASS: R06 line-manager scoped employee directory (3 rows, zero non-2xx)
+NOT RUN: remaining role matrix modules, 155 entries, 458 cards
+```
+
+- Evidence: `evidence/T19-MCP-007/`.
