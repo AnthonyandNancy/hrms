@@ -32,6 +32,19 @@ describe('MoneyText rendering failures', () => {
     expect(nonInteger.text()).toContain('—')
   })
 
+  it('renders bigint and exact string cents with negative tone', () => {
+    const wrapper = mount(MoneyText, {
+      props: { cents: '9007199254740993' },
+    })
+    expect(wrapper.text()).toContain('¥90,071,992,547,409.93')
+
+    const negative = mount(MoneyText, {
+      props: { cents: -1n },
+    })
+    expect(negative.text()).toContain('-¥0.01')
+    expect(negative.classes()).toContain('money-text--negative')
+  })
+
   it('still renders a valid integer amount', () => {
     const wrapper = mount(MoneyText, {
       props: { cents: -500 },

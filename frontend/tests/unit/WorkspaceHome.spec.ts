@@ -125,6 +125,40 @@ describe('workspace home', () => {
     expect(wrapper.get('[data-testid="self-task-link-88"]').attributes('href')).toBe('/workflow/cases/88')
   })
 
+  it('loads the self-service payslip panel from /v1/payroll/payslips without payroll.run.read', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/me/workspace') return Promise.resolve(workspacePayload)
+      if (path === '/v1/payroll/payslips') {
+        return Promise.resolve({
+          items: [{
+            id: 501,
+            run_id: 77,
+            employment_id: 11,
+            version: 1,
+            period: '2026-10',
+            pay_date: '2026-10-31',
+            gross_cents: 400000,
+            deductions_cents: 100000,
+            net_cents: 300000,
+            published_at: '2026-10-31T00:00:00Z',
+          }],
+          page: 1,
+          page_size: 20,
+          total: 1,
+        })
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`))
+    })
+
+    const { wrapper } = await mountWorkspace(['iam.session.manage', 'payroll.payslip.read.self'])
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/payroll/payslips', undefined)
+    expect(resource.get).not.toHaveBeenCalledWith('/v1/payroll/runs', expect.anything())
+    expect(wrapper.find('[data-testid="workspace-self-payslips"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('2026-10')
+    expect(wrapper.text()).toContain('¥3,000.00')
+  })
+
   it('shows management tasks but no self-service actions when the account has no employment', async () => {
     resource.get.mockImplementation((path: string) => {
       if (path === '/v1/me/workspace') {

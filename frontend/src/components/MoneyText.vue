@@ -4,18 +4,17 @@ import { formatMoney } from '@/utils/format'
 
 const props = withDefaults(
   defineProps<{
-    cents?: number | null
+    cents?: string | number | bigint | null
     size?: 'sm' | 'md' | 'lg'
     tone?: 'default' | 'muted' | 'negative' | 'strong'
     label?: string
+    currency?: string
   }>(),
   { size: 'md', tone: 'default' },
 )
 
-const formatted = computed(() => formatMoney(props.cents))
-const isNegative = computed(
-  () => typeof props.cents === 'number' && Number.isSafeInteger(props.cents) && props.cents < 0,
-)
+const formatted = computed(() => formatMoney(props.cents, props.currency ?? 'CNY'))
+const isNegative = computed(() => formatted.value.startsWith('-'))
 </script>
 
 <template>

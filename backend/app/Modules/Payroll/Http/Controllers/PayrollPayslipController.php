@@ -57,9 +57,14 @@ final class PayrollPayslipController
         }
 
         $payslips = $query->get();
+        $runs = PayrollRun::query()->whereIn('id', $payslips->pluck('run_id')->all())->get()->keyBy('id');
 
         return ApiResponse::ok(ApiResponse::list(
-            $payslips->map(fn (Payslip $payslip): array => $this->summary($payslip, $this->fieldsFor($payslip)))->all(),
+            $payslips->map(fn (Payslip $payslip): array => $this->summary(
+                $payslip,
+                $this->fieldsFor($payslip),
+                $runs->get((int) $payslip->run_id),
+            ))->all(),
             1,
             20,
             $payslips->count(),
@@ -92,8 +97,7 @@ final class PayrollPayslipController
             ->first();
 
         return ApiResponse::ok([
-            ...$this->summary($payslip, $this->fieldsFor($payslip)),
-            'period' => $run !== null ? (string) $run->period : null,
+            ...$this->summary($payslip, $this->fieldsFor($payslip), $run),
             'lines' => PayslipLine::query()
                 ->where('payslip_id', $payslip->id)
                 ->orderBy('sort_order')
@@ -115,11 +119,13 @@ final class PayrollPayslipController
     /**
      * @return array<string, mixed>
      */
-    private function summary(Payslip $payslip, FieldSet $fields): array
+    private function summary(Payslip $payslip, FieldSet $fields, ?PayrollRun $run = null): array
     {
         return [
             'id' => (int) $payslip->id,
             'run_id' => (int) $payslip->run_id,
+            'period' => $run !== null ? (string) $run->period : null,
+            'pay_date' => $run !== null ? substr((string) $run->pay_date, 0, 10) : null,
             'employment_id' => (int) $payslip->employment_id,
             'version' => (int) $payslip->version,
             ...($fields->isVisible('gross') ? ['gross_cents' => (int) $payslip->gross_cents] : []),

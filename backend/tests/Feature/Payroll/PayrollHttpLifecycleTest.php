@@ -77,7 +77,9 @@ final class PayrollHttpLifecycleTest extends PayrollTestCase
         $own = \App\Modules\Payroll\Models\Payslip::query()->where('run_id', $run->id)->firstOrFail();
 
         $this->actAs(20, (int) $own->employment_id);
-        $list = $this->getJson('/v1/payroll/payslips', $this->headers())->assertOk();
+        $list = $this->getJson('/v1/payroll/payslips', $this->headers())->assertOk()
+            ->assertJsonPath('data.items.0.period', '2026-02')
+            ->assertJsonPath('data.items.0.pay_date', '2026-02-28');
         $this->assertCount(1, $list->json('data.items'));
 
         $this->getJson('/v1/payroll/payslips/'.(int) $own->id, $this->headers())->assertOk();

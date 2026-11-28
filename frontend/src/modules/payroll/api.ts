@@ -536,6 +536,8 @@ export type MyPayslip = {
   runId: number
   employmentId: number
   version: number
+  period?: string | null
+  payDate?: string | null
   publishedAt: string | null
   grossCents?: number
   deductionsCents?: number
@@ -847,6 +849,8 @@ export function normaliseMyPayslip(raw: unknown): MyPayslip {
     runId: requiredInteger(row.run_id, 'payslip.run_id'),
     employmentId: requiredInteger(row.employment_id, 'payslip.employment_id'),
     version: requiredInteger(row.version, 'payslip.version'),
+    period: nullableText(row.period, 'payslip.period'),
+    payDate: nullableText(row.pay_date, 'payslip.pay_date'),
     publishedAt: nullableText(row.published_at, 'payslip.published_at'),
     grossCents: optionalMoney(row, 'gross_cents', 'payslip.gross_cents'),
     deductionsCents: optionalMoney(row, 'deductions_cents', 'payslip.deductions_cents'),

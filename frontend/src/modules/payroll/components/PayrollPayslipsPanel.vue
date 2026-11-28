@@ -152,7 +152,7 @@ onMounted(() => {
         data-testid="payroll-payslip-table"
         empty-title="还没有已发布工资条"
       >
-        <template #cell-period="{ row }">{{ runPeriod(Number(row.runId)) }}</template>
+        <template #cell-period="{ row }">{{ row.period ?? runPeriod(Number(row.runId)) }}</template>
         <template #cell-runId="{ row }">批次 #{{ row.runId }}</template>
         <template #cell-version="{ row }">v{{ row.version }}</template>
         <template #cell-gross="{ row }">
